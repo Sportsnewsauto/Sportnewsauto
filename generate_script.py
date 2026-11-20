@@ -273,19 +273,30 @@ CURRENT-NEWS FOCUS
     or speculative predictions to increase the script length.
 
 WRITING AND AUDIO STYLE
-26. Use clear, natural English that sounds professional when read aloud.
-27. Maintain a neutral, informative, measured news-analysis tone.
-28. Write developed paragraphs with smooth transitions, not short isolated
+28. Use full spoken names instead of abbreviations, acronyms, or initialisms
+    wherever possible. Write "United States" rather than "U.S.", "National
+    Basketball Association" rather than "NBA", and "United Nations" rather
+    than "U.N.". Do not put full stops between initials in narration. On first
+    mention, spell out an organization's or competition's full name; avoid
+    shortened forms later too when they could be misread by text-to-speech.
+    Never invent an expansion when the full name is not known; rephrase the
+    sentence using the full name supplied in the story or omit the shorthand.
+29. Pronunciation takes priority over compact writing: write numbers,
+    measurements, dates, titles, and technical terms in a natural spoken form
+    when practical, so the voice does not read punctuation as sentence stops.
+28. Use clear, natural English that sounds professional when read aloud.
+29. Maintain a neutral, informative, measured news-analysis tone.
+30. Write developed paragraphs with smooth transitions, not short isolated
     sentences or bullet-point fragments.
-29. Explain complex issues in accessible language without oversimplifying.
-30. Maintain continuity with earlier sections while adding genuinely new
+31. Explain complex issues in accessible language without oversimplifying.
+32. Maintain continuity with earlier sections while adding genuinely new
     information. Avoid repeating information already adequately explained.
-31. Avoid sensationalism, clickbait, loaded language, unsupported claims,
+33. Avoid sensationalism, clickbait, loaded language, unsupported claims,
     artificial suspense, filler, and unnecessary rhetorical questions.
-32. Do not include a title, heading, section label, numbered list, bullet
+34. Do not include a title, heading, section label, numbered list, bullet
     list, source list, citation, URL, publisher name, stage direction, sound
     effect, production note, greeting, or sign-off.
-33. Return narration only. Do not describe your writing process or repeat
+35. Return narration only. Do not describe your writing process or repeat
     these instructions. Do not include BEGIN_NARRATION or END_NARRATION.
 
 SECTION STATUS
