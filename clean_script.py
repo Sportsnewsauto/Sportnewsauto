@@ -67,17 +67,54 @@ def main():
 
     narration_text = "\n\n".join(sections).strip()
 
-    # Expand dotted U.S. initials so text-to-speech does not treat the
-    # abbreviation periods as sentence-ending pauses.
-    narration_text, us_expansions = re.subn(
-        r"\bU\s*\.\s*S\s*\.",
-        "United States",
+    # Expand common news and sports abbreviations before text-to-speech.
+    # The writing prompt also instructs the model to use full names from the start.
+    expansions = {
+        "U.S.A.": "United States of America",
+        "U.S.": "United States",
+        "U.K.": "United Kingdom",
+        "U.N.": "United Nations",
+        "E.U.": "European Union",
+        "N.A.T.O.": "North Atlantic Treaty Organization",
+        "F.B.I.": "Federal Bureau of Investigation",
+        "C.I.A.": "Central Intelligence Agency",
+        "N.B.A.": "National Basketball Association",
+        "N.F.L.": "National Football League",
+        "M.L.B.": "Major League Baseball",
+        "N.H.L.": "National Hockey League",
+        "F.I.F.A.": "FIFA",
+        "U.E.F.A.": "UEFA",
+        "O.L.Y.M.P.I.C.S.": "Olympic Games",
+        "P.O.W.": "prisoner of war",
+        "P.M.": "prime minister",
+        "C.E.O.": "chief executive officer",
+        "U.S.D.": "United States dollars",
+    }
+
+    total_expansions = 0
+    for abbreviation, full_form in sorted(
+        expansions.items(), key=lambda item: len(item[0]), reverse=True
+    ):
+        narration_text, count = re.subn(
+            r"(?<!\\w)" + re.escape(abbreviation) + r"(?!\\w)",
+            full_form,
+            narration_text,
+            flags=re.IGNORECASE,
+        )
+        total_expansions += count
+
+    # Also remove dots between unknown initials so they cannot be mistaken
+    # for sentence-ending punctuation. The model is instructed to spell these
+    # out; this fallback keeps their letters together for the voice.
+    narration_text = re.sub(
+        r"\\b([A-Z])\\.\\s*([A-Z])\\.",
+        r"\\1\\2",
         narration_text,
-        flags=re.IGNORECASE,
     )
-    if us_expansions:
+
+    if total_expansions:
         print(
-            f"Expanded U.S. abbreviation {us_expansions} time(s) for narration.",
+            f"Expanded {total_expansions} known abbreviation(s) for narration.",
             flush=True,
         )
 
