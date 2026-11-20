@@ -132,9 +132,6 @@ jobs:
           echo "ERROR: Metadata generation failed after 6 attempts."
           exit 1
 
-      - name: Generate episode thumbnail
-        run: python generate_thumbnail.py
-
       - name: Generate podcast audio locally with Kokoro
         env:
           KOKORO_VOICE: af_heart
@@ -149,11 +146,6 @@ jobs:
           SPREAKER_ACCESS_TOKEN: ${{ secrets.SPREAKER_ACCESS_TOKEN }}
           SPREAKER_SHOW_ID: ${{ secrets.SPREAKER_SHOW_ID }}
         run: python upload_spreaker.py
-
-      - name: Upload thumbnail to Spreaker draft
-        env:
-          SPREAKER_ACCESS_TOKEN: ${{ secrets.SPREAKER_ACCESS_TOKEN }}
-        run: python upload_thumbnail.py
 
       - name: Record successfully uploaded story
         run: python record_covered_story.py
