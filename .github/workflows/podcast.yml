@@ -1,0 +1,177 @@
+
+name: Automated Podcast
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0,3,6,9,12,15,18,21 * * *"
+      timezone: "Africa/Nairobi"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: automated-podcast
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Download repository files
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache Kokoro and Hugging Face models
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface/hub
+            ~/.cache/torch/hub
+            ~/.cache/torch
+          key: kokoro-models-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            kokoro-models-${{ runner.os }}-
+
+      - name: Free up disk space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h /
+
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/powershell
+
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+          rm -rf ~/.cache/pip
+
+          echo "Disk space after cleanup:"
+          df -h /
+
+      - name: Install Kokoro system dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends espeak-ng
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+
+      - name: Install CPU-only PyTorch
+        run: |
+          python -m pip install --no-cache-dir \
+            torch \
+            --index-url https://download.pytorch.org/whl/cpu
+
+          python -c "import torch; print('PyTorch version:', torch.__version__); print('CUDA available:', torch.cuda.is_available())"
+
+      - name: Install podcast dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --no-cache-dir -r requirements.txt
+
+      - name: Check AI provider API keys
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python -c "import os; assert os.getenv('GROQ_API_KEY') or os.getenv('GEMINI_API_KEY'), 'Add GROQ_API_KEY or GEMINI_API_KEY to repository secrets'"
+
+      - name: Check Spreaker configuration
+        env:
+          SPREAKER_ACCESS_TOKEN: ${{ secrets.SPREAKER_ACCESS_TOKEN }}
+          SPREAKER_SHOW_ID: ${{ secrets.SPREAKER_SHOW_ID }}
+        run: |
+          python -c "import os; assert os.getenv('SPREAKER_ACCESS_TOKEN'), 'Missing SPREAKER_ACCESS_TOKEN'; assert os.getenv('SPREAKER_SHOW_ID'), 'Missing SPREAKER_SHOW_ID'"
+
+      - name: Fetch a new sports news story
+        run: python fetch_news.py
+
+      - name: Generate podcast script (Groq primary, Gemini fallback)
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_TEXT_MODEL: openai/gpt-oss-120b
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_TEXT_MODEL: gemini-3.5-flash-lite
+        run: python generate_script.py
+
+      - name: Validate and extract narration
+        run: python clean_script.py
+
+      - name: Generate episode title, description, and tags (Groq primary, Gemini fallback)
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_TEXT_MODEL: openai/gpt-oss-120b
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_TEXT_MODEL: gemini-3.5-flash-lite
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            echo "Metadata generation attempt $attempt of 6"
+
+            if python generate_metadata.py; then
+              echo "Metadata generated successfully."
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 6 ]; then
+              delay=$((attempt * 10))
+              echo "Attempt $attempt failed. Retrying in $delay seconds..."
+              sleep "$delay"
+            fi
+          done
+
+          echo "ERROR: Metadata generation failed after 6 attempts."
+          exit 1
+
+      - name: Generate podcast audio locally with Kokoro
+        env:
+          KOKORO_VOICE: af_heart
+          KOKORO_TORCH_THREADS: "4"
+          OMP_NUM_THREADS: "4"
+          MKL_NUM_THREADS: "4"
+          OPENBLAS_NUM_THREADS: "4"
+        run: python generate_audio.py
+
+      - name: Upload episode to Spreaker as an unpublished draft
+        env:
+          SPREAKER_ACCESS_TOKEN: ${{ secrets.SPREAKER_ACCESS_TOKEN }}
+          SPREAKER_SHOW_ID: ${{ secrets.SPREAKER_SHOW_ID }}
+        run: python upload_spreaker.py
+
+      - name: Record successfully uploaded story
+        run: python record_covered_story.py
+
+      - name: Save story history to GitHub
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add covered_stories.json
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Update covered news story history [skip ci]"
+          else
+            echo "No new history changes to commit."
+          fi
+
+          git fetch origin main
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Save generated files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: podcast-${{ github.run_number }}
+          path: output/
+          if-no-files-found: warn
+          retention-days: 14
