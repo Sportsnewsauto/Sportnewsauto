@@ -66,6 +66,21 @@ def main():
             )
 
     narration_text = "\n\n".join(sections).strip()
+
+    # Expand dotted U.S. initials so text-to-speech does not treat the
+    # abbreviation periods as sentence-ending pauses.
+    narration_text, us_expansions = re.subn(
+        r"\bU\s*\.\s*S\s*\.",
+        "United States",
+        narration_text,
+        flags=re.IGNORECASE,
+    )
+    if us_expansions:
+        print(
+            f"Expanded U.S. abbreviation {us_expansions} time(s) for narration.",
+            flush=True,
+        )
+
     actual_length = len(narration_text)
 
     print(f"Sections found: {len(sections)}", flush=True)
