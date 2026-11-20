@@ -93,7 +93,7 @@ jobs:
         run: |
           python -c "import os; assert os.getenv('SPREAKER_ACCESS_TOKEN'), 'Missing SPREAKER_ACCESS_TOKEN'; assert os.getenv('SPREAKER_SHOW_ID'), 'Missing SPREAKER_SHOW_ID'"
 
-      - name: Fetch a new U.S. news story
+      - name: Fetch a new sports news story
         run: python fetch_news.py
 
       - name: Generate podcast script (Groq primary, Gemini fallback)
