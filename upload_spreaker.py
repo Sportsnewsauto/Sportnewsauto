@@ -196,6 +196,92 @@ def add_ad_cuepoints(episode_id, headers, duration_ms):
     }
 
 
+def resolve_spreaker_show_id(token, headers):
+    """
+    Resolve the user's editable Spreaker show when SPREAKER_SHOW_ID
+    is not configured. Auto-select only when exactly one editable
+    show is available, preventing accidental publishing to the wrong show.
+    """
+    response = requests.get(
+        f"{API_BASE}/me",
+        headers=headers,
+        timeout=(20, 60),
+    )
+    if not response.ok:
+        raise RuntimeError(
+            "Could not identify the authenticated Spreaker account. "
+            f"HTTP {response.status_code}: {response.text[:1200]}"
+        )
+
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise RuntimeError("Spreaker returned invalid JSON for /me.") from exc
+
+    user = payload.get("response", {}).get("user", {})
+    user_id = user.get("user_id")
+    if not user_id:
+        raise RuntimeError(
+            "Spreaker /me response did not contain a user ID. "
+            "Set SPREAKER_SHOW_ID explicitly in GitHub Secrets."
+        )
+
+    shows_response = requests.get(
+        f"{API_BASE}/users/{user_id}/shows",
+        headers=headers,
+        params={"filter": "editable", "limit": 100},
+        timeout=(20, 60),
+    )
+    if not shows_response.ok:
+        raise RuntimeError(
+            "Could not retrieve editable Spreaker shows. "
+            f"HTTP {shows_response.status_code}: "
+            f"{shows_response.text[:1200]}. "
+            "Set SPREAKER_SHOW_ID explicitly in GitHub Secrets."
+        )
+
+    try:
+        shows_payload = shows_response.json()
+    except ValueError as exc:
+        raise RuntimeError(
+            "Spreaker returned invalid JSON while listing editable shows."
+        ) from exc
+
+    shows = shows_payload.get("response", {}).get("items", [])
+    if not isinstance(shows, list) or not shows:
+        raise RuntimeError(
+            "No editable Spreaker shows were found for this access token. "
+            "Check the token permissions or set SPREAKER_SHOW_ID explicitly."
+        )
+
+    if len(shows) > 1:
+        choices = [
+            f"{show.get('title', 'Untitled show')} (ID: {show.get('show_id')})"
+            for show in shows
+            if show.get("show_id") is not None
+        ]
+        raise RuntimeError(
+            "More than one editable Spreaker show was found. "
+            "To avoid publishing to the wrong show, set SPREAKER_SHOW_ID "
+            "in GitHub Secrets to the intended show. Available shows: "
+            + "; ".join(choices[:20])
+        )
+
+    show_id = shows[0].get("show_id")
+    if not show_id:
+        raise RuntimeError(
+            "Spreaker returned an editable show without a show ID. "
+            "Set SPREAKER_SHOW_ID explicitly in GitHub Secrets."
+        )
+
+    print(
+        f"Automatically selected the only editable Spreaker show: "
+        f"{shows[0].get('title', 'Untitled show')} (ID: {show_id})",
+        flush=True,
+    )
+    return str(show_id)
+
+
 def main():
     token = os.getenv("SPREAKER_ACCESS_TOKEN")
     show_id = os.getenv("SPREAKER_SHOW_ID")
@@ -205,10 +291,18 @@ def main():
             "SPREAKER_ACCESS_TOKEN is missing from GitHub Secrets."
         )
 
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "User-Agent": "OXNewsDaily-AutomatedPodcast/1.0",
+    }
+
     if not show_id:
-        raise RuntimeError(
-            "SPREAKER_SHOW_ID is missing from GitHub Secrets."
+        print(
+            "SPREAKER_SHOW_ID is not configured. Discovering the "
+            "authenticated account's editable show...",
+            flush=True,
         )
+        show_id = resolve_spreaker_show_id(token, headers)
 
     if not AUDIO_FILE.exists():
         raise FileNotFoundError(
@@ -253,11 +347,6 @@ def main():
 
     # Read actual WAV duration before uploading.
     duration_ms = get_audio_duration_ms()
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "User-Agent": "OXNewsDaily-AutomatedPodcast/1.0",
-    }
 
     print("=" * 55, flush=True)
     print("SPREAKER AUTOMATIC PUBLISH UPLOAD", flush=True)
