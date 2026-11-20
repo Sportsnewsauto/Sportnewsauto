@@ -433,11 +433,13 @@ def generate_section(
             )
             return narration
 
+        delay = retry_delay(attempt - 1)
         print(
             f"Rejected {label} {section_number}: "
-            f"{'; '.join(problems)}. Regenerating...",
+            f"{'; '.join(problems)}. Retrying in {delay}s...",
             flush=True,
         )
+        time.sleep(delay)
         prompt += (
             "\n\nIMPORTANT CORRECTION: Your previous response failed "
             "the text-to-speech validation because "
