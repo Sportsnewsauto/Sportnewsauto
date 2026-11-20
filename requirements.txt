@@ -1,0 +1,7 @@
+
+google-genai
+kokoro>=0.9.4
+soundfile
+requests>=2.31.0
+Pillow
+preshed==3.0.13
