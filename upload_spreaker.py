@@ -473,23 +473,61 @@ def main():
 
     if not cuepoint_result.get("success"):
         if "http_status" in cuepoint_result:
-            save_result(
-                episode_id=episode_id,
-                show_id=show_id,
-                title=title,
-                status="audio_uploaded_cuepoints_failed",
-                details={
-                    "audio_uploaded": True,
-                    "upload_response": upload_data,
-                    "cuepoint_result": cuepoint_result,
-                },
+            cuepoint_error = str(cuepoint_result.get("error", ""))
+
+            # Spreaker returns HTTP 412 until the account owner accepts
+            # the Ad Exchange terms. This blocks cuepoints, not publishing.
+            # Keep the episode moving so a monetization setting cannot
+            # prevent an otherwise valid podcast episode from going live.
+            ad_exchange_terms_required = (
+                cuepoint_result.get("http_status") == 412
+                and "terms and conditions" in cuepoint_error.lower()
+                and "ad exchange" in cuepoint_error.lower()
             )
 
-            raise RuntimeError(
-                "Audio uploaded, but Spreaker rejected the "
-                "advertising markers. The draft is saved. "
-                "Check the API error before retrying the workflow."
-            )
+            if ad_exchange_terms_required:
+                print(
+                    "WARNING: Spreaker Ad Exchange terms have not been "
+                    "accepted. Advertising markers will be skipped for "
+                    "this episode, but publishing will continue. Accept "
+                    "the Ad Exchange terms in your Spreaker account to "
+                    "enable these markers on future episodes.",
+                    flush=True,
+                )
+                save_result(
+                    episode_id=episode_id,
+                    show_id=show_id,
+                    title=title,
+                    status="audio_uploaded_ad_markers_skipped_terms_required",
+                    details={
+                        "audio_uploaded": True,
+                        "upload_response": upload_data,
+                        "cuepoint_result": cuepoint_result,
+                        "warning": (
+                            "Spreaker Ad Exchange terms must be accepted "
+                            "before advertising markers can be added."
+                        ),
+                    },
+                )
+            else:
+                save_result(
+                    episode_id=episode_id,
+                    show_id=show_id,
+                    title=title,
+                    status="audio_uploaded_cuepoints_failed",
+                    details={
+                        "audio_uploaded": True,
+                        "upload_response": upload_data,
+                        "cuepoint_result": cuepoint_result,
+                    },
+                )
+
+                raise RuntimeError(
+                    "Audio uploaded, but Spreaker rejected the "
+                    "advertising markers for a reason other than the "
+                    "Ad Exchange terms requirement. The draft is saved. "
+                    "Check the API error before retrying the workflow."
+                )
 
     # STEP 4: Publish the episode immediately (Spreaker expects UTC).
     published_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
