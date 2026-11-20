@@ -86,12 +86,17 @@ jobs:
         run: |
           python -c "import os; assert os.getenv('GROQ_API_KEY') or os.getenv('GEMINI_API_KEY'), 'Add GROQ_API_KEY or GEMINI_API_KEY to repository secrets'"
 
-      - name: Check Spreaker configuration
+      - name: Check Spreaker access token
         env:
           SPREAKER_ACCESS_TOKEN: ${{ secrets.SPREAKER_ACCESS_TOKEN }}
           SPREAKER_SHOW_ID: ${{ secrets.SPREAKER_SHOW_ID }}
         run: |
-          python -c "import os; assert os.getenv('SPREAKER_ACCESS_TOKEN'), 'Missing SPREAKER_ACCESS_TOKEN'; assert os.getenv('SPREAKER_SHOW_ID'), 'Missing SPREAKER_SHOW_ID'"
+          python -c "import os; assert os.getenv('SPREAKER_ACCESS_TOKEN'), 'Missing SPREAKER_ACCESS_TOKEN. Add it to GitHub Actions secrets.'"
+          if [ -z "$SPREAKER_SHOW_ID" ]; then
+            echo "SPREAKER_SHOW_ID is not set; upload_spreaker.py will discover the account's only editable show."
+          else
+            echo "A Spreaker show ID is configured."
+          fi
 
       - name: Fetch a new sports news story
         run: python fetch_news.py
@@ -141,7 +146,7 @@ jobs:
           OPENBLAS_NUM_THREADS: "4"
         run: python generate_audio.py
 
-      - name: Upload episode to Spreaker as an unpublished draft
+      - name: Upload episode and publish to Spreaker automatically
         env:
           SPREAKER_ACCESS_TOKEN: ${{ secrets.SPREAKER_ACCESS_TOKEN }}
           SPREAKER_SHOW_ID: ${{ secrets.SPREAKER_SHOW_ID }}
