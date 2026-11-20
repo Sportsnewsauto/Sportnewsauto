@@ -1,6 +1,7 @@
 
 import json
 import os
+from datetime import datetime, timezone
 import sys
 import wave
 from pathlib import Path
@@ -259,7 +260,7 @@ def main():
     }
 
     print("=" * 55, flush=True)
-    print("SPREAKER DRAFT UPLOAD", flush=True)
+    print("SPREAKER AUTOMATIC PUBLISH UPLOAD", flush=True)
     print(f"Show ID: {show_id}", flush=True)
     print(f"Episode title: {title}", flush=True)
     print(
@@ -271,10 +272,10 @@ def main():
         f"Audio duration: {duration_ms / 60000:.2f} minutes",
         flush=True,
     )
-    print("Publishing mode: DRAFT, not public", flush=True)
+    print("Publishing mode: AUTOMATIC, publish immediately after upload", flush=True)
     print("=" * 55, flush=True)
 
-    # STEP 1: Create an unpublished Spreaker draft.
+    # STEP 1: Create a Spreaker draft for upload and metadata.
     draft_response = requests.post(
         f"{API_BASE}/episodes/drafts",
         headers=headers,
@@ -317,19 +318,19 @@ def main():
         episode_id=episode_id,
         show_id=show_id,
         title=title,
-        status="draft_created",
+        status="upload_record_created",
         details={
             "audio_uploaded": False
         },
     )
 
     print(
-        f"Draft created. Episode ID: {episode_id}",
+        f"Upload record created. Episode ID: {episode_id}",
         flush=True,
     )
 
     # STEP 2: Upload audio to the unpublished draft.
-    print("Uploading podcast.wav to the draft...", flush=True)
+    print("Uploading podcast.wav to the episode...", flush=True)
 
     with AUDIO_FILE.open("rb") as audio:
         upload_response = requests.post(
@@ -350,7 +351,7 @@ def main():
             episode_id=episode_id,
             show_id=show_id,
             title=title,
-            status="draft_created_audio_upload_failed",
+            status="audio_upload_failed",
             details={
                 "audio_uploaded": False,
                 "http_status": upload_response.status_code,
@@ -387,7 +388,7 @@ def main():
                 episode_id=episode_id,
                 show_id=show_id,
                 title=title,
-                status="draft_audio_uploaded_cuepoints_failed",
+                status="audio_uploaded_cuepoints_failed",
                 details={
                     "audio_uploaded": True,
                     "upload_response": upload_data,
@@ -401,29 +402,68 @@ def main():
                 "Check the API error before retrying the workflow."
             )
 
-    # STEP 4: Save final upload and advertising marker details.
+    # STEP 4: Publish the episode immediately (Spreaker expects UTC).
+    published_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    print(f"Publishing episode publicly at {published_at} UTC...", flush=True)
+
+    publish_response = requests.post(
+        f"{API_BASE}/episodes/{episode_id}",
+        headers=headers,
+        data={"published_at": published_at},
+        timeout=(30, 120),
+    )
+
+    if not publish_response.ok:
+        save_result(
+            episode_id=episode_id,
+            show_id=show_id,
+            title=title,
+            status="audio_uploaded_publish_failed",
+            details={
+                "audio_uploaded": True,
+                "published_at_utc": published_at,
+                "http_status": publish_response.status_code,
+                "error": publish_response.text[:1500],
+                "advertising_markers": cuepoint_result,
+            },
+        )
+        raise RuntimeError(
+            "Audio uploaded, but Spreaker could not publish the episode. "
+            f"HTTP {publish_response.status_code}: {publish_response.text[:2000]}"
+        )
+
+    try:
+        publish_data = publish_response.json()
+    except ValueError:
+        publish_data = {"raw_response": publish_response.text[:1500]}
+
+    print("Spreaker accepted the publish request.", flush=True)
+
+    # STEP 5: Save final upload, publishing, and advertising details.
     save_result(
         episode_id=episode_id,
         show_id=show_id,
         title=title,
-        status="draft_audio_uploaded",
+        status="published",
         details={
             "audio_uploaded": True,
             "audio_duration_minutes": round(
                 duration_ms / 60000, 2
             ),
             "upload_response": upload_data,
+            "publish_response": publish_data,
+            "published_at_utc": published_at,
             "advertising_markers": cuepoint_result,
         },
     )
 
     print("", flush=True)
     print("=" * 55, flush=True)
-    print("SPREAKER DRAFT UPLOAD COMPLETE", flush=True)
+    print("SPREAKER AUTOMATIC PUBLISH COMPLETE", flush=True)
     print(f"Show: {show_id}", flush=True)
     print(f"Episode ID: {episode_id}", flush=True)
     print(f"Title: {title}", flush=True)
-    print("Audio uploaded; episode remains unpublished.", flush=True)
+    print("Episode published publicly on Spreaker.", flush=True)
 
     if cuepoint_result.get("success"):
         print(
