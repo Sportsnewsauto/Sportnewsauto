@@ -51,19 +51,68 @@ def clean_response(text):
     return text.strip()
 
 
-def generate_content_with_retry(client, prompt, max_retries=6):
-    """Try Groq first, then fall back to Gemini if Groq is unavailable."""
-    retryable_markers = (
-        "429", "500", "502", "503", "504", "408",
-        "UNAVAILABLE", "RESOURCE_EXHAUSTED", "TIMEOUT",
-        "TIMED OUT", "CONNECTION", "NETWORK", "SERVER",
-        "TEMPORARILY UNAVAILABLE", "SERVICE UNAVAILABLE",
-    )
+def is_permanent_api_error(exc):
+    """Return True for errors that retries cannot repair."""
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    status = status or getattr(exc, "status_code", None)
+    code = getattr(exc, "code", None)
+    message = f"{type(exc).__name__}: {exc} {code or ''}".upper()
 
+    if status in (400, 401, 403, 404, 405, 410, 422):
+        return True
+    permanent_markers = (
+        "INVALID API KEY", "API KEY NOT VALID", "UNAUTHENTICATED",
+        "PERMISSION_DENIED", "PERMISSION DENIED", "FORBIDDEN",
+        "UNAUTHORIZED", "INSUFFICIENT PERMISSION", "MODEL NOT FOUND",
+        "NOT_FOUND", "INVALID MODEL", "UNSUPPORTED MODEL",
+    )
+    return any(marker in message for marker in permanent_markers)
+
+
+def is_retryable_api_error(exc):
+    """Identify temporary service and network failures."""
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    status = status or getattr(exc, "status_code", None)
+    if status is not None:
+        try:
+            status = int(status)
+            return status in (408, 409, 425, 429) or 500 <= status <= 599
+        except (TypeError, ValueError):
+            pass
+
+    message = f"{type(exc).__name__}: {exc}".upper()
+    retryable_markers = (
+        "408", "409", "425", "429", "500", "502", "503", "504",
+        "UNAVAILABLE", "RESOURCE_EXHAUSTED", "TIMEOUT", "TIMED OUT",
+        "CONNECTION", "NETWORK", "SERVER", "TEMPORARILY UNAVAILABLE",
+        "SERVICE UNAVAILABLE", "INTERNAL ERROR", "OVERLOADED",
+        "RATE LIMIT", "TOO MANY REQUESTS",
+    )
+    network_error = isinstance(
+        exc,
+        (
+            requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ChunkedEncodingError,
+        ),
+    )
+    return network_error or any(marker in message for marker in retryable_markers)
+
+
+def retry_delay(attempt):
+    """Exponential backoff, capped at two minutes."""
+    return min(120, 5 * (2 ** min(attempt, 10)))
+
+
+def generate_content_with_retry(client, prompt):
+    """Generate with Groq or Gemini, retrying temporary failures until success."""
     groq_key = os.getenv("GROQ_API_KEY")
     if groq_key:
         groq_model = os.getenv("GROQ_TEXT_MODEL", "openai/gpt-oss-120b")
-        for attempt in range(max_retries):
+        attempt = 0
+        while True:
             try:
                 response = requests.post(
                     "https://api.groq.com/openai/v1/chat/completions",
@@ -87,32 +136,33 @@ def generate_content_with_retry(client, prompt, max_retries=6):
                 print(f"Groq generation succeeded using {groq_model}.", flush=True)
                 return SimpleNamespace(text=content)
             except Exception as exc:
-                message = f"{type(exc).__name__}: {exc}".upper()
-                retryable = any(marker in message for marker in retryable_markers)
-                if not retryable or attempt == max_retries - 1:
-                    print(
-                        f"Groq unavailable after {attempt + 1} attempt(s): "
-                        f"{type(exc).__name__}: {exc}",
-                        flush=True,
-                    )
-                    break
-                delay = min(60, 5 * (2 ** attempt))
+                if is_permanent_api_error(exc):
+                    raise RuntimeError(
+                        f"Permanent Groq error; stopping retries: {exc}"
+                    ) from exc
+                if not is_retryable_api_error(exc) and not isinstance(exc, RuntimeError):
+                    raise RuntimeError(
+                        f"Non-retryable Groq error; stopping retries: {exc}"
+                    ) from exc
+
+                attempt += 1
+                delay = retry_delay(attempt - 1)
                 print(
-                    f"Temporary Groq error: {exc}. Retrying in {delay}s "
-                    f"({attempt + 1}/{max_retries})...",
+                    f"Groq temporary failure or empty response: {exc}. "
+                    f"Retrying in {delay}s (attempt {attempt}; no attempt limit).",
                     flush=True,
                 )
                 time.sleep(delay)
 
     if client is None:
         raise RuntimeError(
-            "Groq generation failed and GEMINI_API_KEY is not configured."
+            "GROQ_API_KEY is not configured and GEMINI_API_KEY is unavailable."
         )
 
-    print("Falling back to Gemini for this generation request.", flush=True)
-    for attempt in range(max_retries):
+    attempt = 0
+    while True:
         try:
-            return client.models.generate_content(
+            response = client.models.generate_content(
                 model=os.getenv("GEMINI_TEXT_MODEL", "gemini-3.5-flash-lite"),
                 contents=prompt,
                 config=types.GenerateContentConfig(
@@ -120,20 +170,48 @@ def generate_content_with_retry(client, prompt, max_retries=6):
                     max_output_tokens=3500,
                 ),
             )
+            if not getattr(response, "text", None) or not response.text.strip():
+                raise RuntimeError("Gemini returned an empty response.")
+            return response
         except Exception as exc:
-            message = f"{type(exc).__name__}: {exc}".upper()
-            retryable = any(marker in message for marker in retryable_markers)
-            if not retryable or attempt == max_retries - 1:
-                raise
-            delay = min(60, 5 * (2 ** attempt))
+            if is_permanent_api_error(exc):
+                raise RuntimeError(
+                    f"Permanent Gemini error; stopping retries: {exc}"
+                ) from exc
+            if not is_retryable_api_error(exc) and not isinstance(exc, RuntimeError):
+                raise RuntimeError(
+                    f"Non-retryable Gemini error; stopping retries: {exc}"
+                ) from exc
+
+            attempt += 1
+            delay = retry_delay(attempt - 1)
             print(
-                f"Temporary Gemini/network error: {exc}. "
-                f"Retrying in {delay}s ({attempt + 1}/{max_retries})...",
+                f"Gemini temporary failure or empty response: {exc}. "
+                f"Retrying in {delay}s (attempt {attempt}; no attempt limit).",
                 flush=True,
             )
             time.sleep(delay)
 
-    raise RuntimeError("Groq and Gemini generation attempts were exhausted.")
+
+def validate_narration(narration):
+    """Reject narration that violates the core text-to-speech writing rules."""
+    problems = []
+    if not narration or not narration.strip():
+        problems.append("the narration is empty")
+
+    if re.search(r"\\b(?:[A-Z]\\.){2,}", narration):
+        problems.append("dotted initials or abbreviations were found")
+
+    if re.search(r"(?<![A-Za-z])[A-Z]{2,8}(?![A-Za-z])", narration):
+        problems.append("an uppercase acronym or initialism was found")
+
+    if re.search(r"\\d", narration):
+        problems.append("numeric digits were found instead of spoken number wording")
+
+    if re.search(r"\\b(?:U\\.S\\.|U\\.N\\.|E\\.U\\.|U\\.K\\.)\\b", narration, re.I):
+        problems.append("a dotted country or organization abbreviation was found")
+
+    return problems
 
 def make_prompt(
     story,
@@ -322,53 +400,53 @@ def generate_section(
         is_conclusion=is_conclusion,
     )
 
-    for attempt in range(1, 4):
-        label = "conclusion" if is_conclusion else "section"
+    label = "conclusion" if is_conclusion else "section"
+    attempt = 0
 
+    while True:
+        attempt += 1
         print(
             f"Generating {label} {section_number} "
-            f"(attempt {attempt}/3)...",
+            f"(attempt {attempt}; no attempt limit)...",
             flush=True,
         )
 
         try:
             response = generate_content_with_retry(client, prompt)
             narration = clean_response(response.text or "")
-
         except Exception as exc:
-            if attempt == 3:
-                raise
-
+            # API helper already retries temporary errors indefinitely.
+            # Exceptions reaching here are permanent or otherwise fatal.
             print(
-                f"Section request failed: {type(exc).__name__}: {exc}",
+                f"Unable to generate {label} {section_number}: "
+                f"{type(exc).__name__}: {exc}",
                 flush=True,
             )
-            print(
-                "Retrying the section request in 5 seconds...",
-                flush=True,
-            )
-            time.sleep(5)
-            continue
+            raise
 
-        if narration:
+        problems = validate_narration(narration)
+        if not problems:
             print(
                 f"Section {section_number}: "
-                f"{len(narration)} characters. Accepted.",
+                f"{len(narration)} characters. TTS checks passed; accepted.",
                 flush=True,
             )
             return narration
 
         print(
-            "Gemini returned no text. Retrying in 2 seconds.",
+            f"Rejected {label} {section_number}: "
+            f"{'; '.join(problems)}. Regenerating...",
             flush=True,
         )
-        time.sleep(2)
-
-    raise RuntimeError(
-        f"Section {section_number} returned no narration "
-        "after three attempts."
-    )
-
+        prompt += (
+            "\\n\\nIMPORTANT CORRECTION: Your previous response failed "
+            "the text-to-speech validation because "
+            + "; ".join(problems)
+            + ". Regenerate the entire section. Spell out every number "
+            "in words, use full organization and competition names, "
+            "remove all acronyms and initialisms, and do not use dotted "
+            "abbreviations. Return narration only."
+        )
 
 def save_progress(path, story, sections):
     narration = "\n\n".join(sections).strip()
