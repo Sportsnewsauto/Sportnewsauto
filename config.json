@@ -63,6 +63,138 @@
     {
       "name": "BBC Sport - Tennis",
       "url": "https://feeds.bbci.co.uk/sport/tennis/rss.xml"
+    },
+    {
+      "name": "BBC Sport - Premier League",
+      "url": "https://feeds.bbci.co.uk/sport/football/premier-league/rss.xml"
+    },
+    {
+      "name": "BBC Sport - Champions League",
+      "url": "https://feeds.bbci.co.uk/sport/football/champions-league/rss.xml"
+    },
+    {
+      "name": "BBC Sport - European Football",
+      "url": "https://feeds.bbci.co.uk/sport/football/european/rss.xml"
+    },
+    {
+      "name": "BBC Sport - FA Cup",
+      "url": "https://feeds.bbci.co.uk/sport/football/fa-cup/rss.xml"
+    },
+    {
+      "name": "BBC Sport - Women's Football",
+      "url": "https://feeds.bbci.co.uk/sport/football/womens/rss.xml"
+    },
+    {
+      "name": "Sky Sports - Premier League",
+      "url": "https://www.skysports.com/rss/11661"
+    },
+    {
+      "name": "Sky Sports - Formula One",
+      "url": "https://www.skysports.com/rss/12433"
+    },
+    {
+      "name": "Sky Sports - Cricket",
+      "url": "https://www.skysports.com/rss/12123"
+    },
+    {
+      "name": "Sky Sports - Tennis",
+      "url": "https://www.skysports.com/rss/12110"
+    },
+    {
+      "name": "Sky Sports - Golf",
+      "url": "https://www.skysports.com/rss/12176"
+    },
+    {
+      "name": "Sky Sports - Boxing",
+      "url": "https://www.skysports.com/rss/12183"
+    },
+    {
+      "name": "Sky Sports - Rugby Union",
+      "url": "https://www.skysports.com/rss/12321"
+    },
+    {
+      "name": "Sky Sports - NFL",
+      "url": "https://www.skysports.com/rss/12118"
+    },
+    {
+      "name": "ESPN - Soccer",
+      "url": "https://www.espn.com/espn/rss/soccer/news"
+    },
+    {
+      "name": "ESPN - NBA",
+      "url": "https://www.espn.com/espn/rss/nba/news"
+    },
+    {
+      "name": "ESPN - NFL",
+      "url": "https://www.espn.com/espn/rss/nfl/news"
+    },
+    {
+      "name": "ESPN - MLB",
+      "url": "https://www.espn.com/espn/rss/mlb/news"
+    },
+    {
+      "name": "ESPN - NHL",
+      "url": "https://www.espn.com/espn/rss/nhl/news"
+    },
+    {
+      "name": "ESPN - Motorsports",
+      "url": "https://www.espn.com/espn/rss/rpm/news"
+    },
+    {
+      "name": "ESPN - College Basketball",
+      "url": "https://www.espn.com/espn/rss/ncb/news"
+    },
+    {
+      "name": "ESPN - College Football",
+      "url": "https://www.espn.com/espn/rss/ncf/news"
+    },
+    {
+      "name": "MLB - Official News",
+      "url": "https://www.mlb.com/feeds/news/rss.xml"
+    },
+    {
+      "name": "Autosport - Motorsport",
+      "url": "https://www.autosport.com/rss/feed/all"
+    },
+    {
+      "name": "ProFootballTalk - NFL",
+      "url": "https://www.nbcsports.com/profootballtalk.rss"
+    },
+    {
+      "name": "Google News - Global Sports",
+      "url": "https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-US&gl=US&ceid=US:en"
+    },
+    {
+      "name": "Google News - Premier League",
+      "url": "https://news.google.com/rss/search?q=Premier+League+football+when%3A1d&hl=en-GB&gl=GB&ceid=GB%3Aen"
+    },
+    {
+      "name": "Google News - UEFA Champions League",
+      "url": "https://news.google.com/rss/search?q=UEFA+Champions+League+when%3A1d&hl=en-GB&gl=GB&ceid=GB%3Aen"
+    },
+    {
+      "name": "Google News - La Liga",
+      "url": "https://news.google.com/rss/search?q=La+Liga+football+when%3A1d&hl=en-GB&gl=GB&ceid=GB%3Aen"
+    },
+    {
+      "name": "Google News - Serie A",
+      "url": "https://news.google.com/rss/search?q=Serie+A+football+when%3A1d&hl=en-GB&gl=GB&ceid=GB%3Aen"
+    },
+    {
+      "name": "Google News - Bundesliga",
+      "url": "https://news.google.com/rss/search?q=Bundesliga+football+when%3A1d&hl=en-GB&gl=GB&ceid=GB%3Aen"
+    },
+    {
+      "name": "Google News - Ligue 1",
+      "url": "https://news.google.com/rss/search?q=Ligue+1+football+when%3A1d&hl=en-GB&gl=GB&ceid=GB%3Aen"
+    },
+    {
+      "name": "Google News - African Football",
+      "url": "https://news.google.com/rss/search?q=African+football+CAF+when%3A1d&hl=en&gl=KE&ceid=KE%3Aen"
+    },
+    {
+      "name": "Google News - Kenyan Sports",
+      "url": "https://news.google.com/rss/search?q=Kenya+sports+when%3A1d&hl=en&gl=KE&ceid=KE%3Aen"
     }
   ],
   "max_story_age_hours": 24,
