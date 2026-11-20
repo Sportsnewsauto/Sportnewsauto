@@ -96,7 +96,7 @@ def main():
         expansions.items(), key=lambda item: len(item[0]), reverse=True
     ):
         narration_text, count = re.subn(
-            r"(?<!\\w)" + re.escape(abbreviation) + r"(?!\\w)",
+            r"(?<!\w)" + re.escape(abbreviation) + r"(?!\w)",
             full_form,
             narration_text,
             flags=re.IGNORECASE,
@@ -107,8 +107,8 @@ def main():
     # for sentence-ending punctuation. The model is instructed to spell these
     # out; this fallback keeps their letters together for the voice.
     narration_text = re.sub(
-        r"\\b([A-Z])\\.\\s*([A-Z])\\.",
-        r"\\1\\2",
+        r"\b([A-Z])\.\s*([A-Z])\.",
+        r"\1\2",
         narration_text,
     )
 
