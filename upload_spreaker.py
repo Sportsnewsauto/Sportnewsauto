@@ -21,8 +21,10 @@ API_BASE = "https://api.spreaker.com/v2"
 # Each marker allows a maximum of 4 advertisements.
 # Timecodes are in milliseconds.
 AD_CUEPOINTS = [
+    {"timecode": 30000, "ads_max_count": 4},   # 30 seconds
+    {"timecode": 60000, "ads_max_count": 4},   # 1 minute
     {"timecode": 120000, "ads_max_count": 4},  # 2 minutes
-    {"timecode": 240000, "ads_max_count": 4},  # 4 minutes
+    {"timecode": 180000, "ads_max_count": 4},  # 3 minutes
 ]
 
 
@@ -83,7 +85,7 @@ def get_audio_duration_ms():
 
 def add_ad_cuepoints(episode_id, headers, duration_ms):
     """
-    Add advertisements at 2 and 4 minutes.
+    Add advertisements at 30 seconds, 1 minute, 2 minutes, and 3 minutes.
 
     Each position allows a maximum of four advertisements.
     Markers beyond the audio duration are skipped.
@@ -425,15 +427,23 @@ def main():
 
     if cuepoint_result.get("success"):
         print(
+            "30-second marker: maximum 4 ads",
+            flush=True,
+        )
+        print(
+            "1-minute marker: maximum 4 ads",
+            flush=True,
+        )
+        print(
             "2-minute marker: maximum 4 ads",
             flush=True,
         )
         print(
-            "4-minute marker: maximum 4 ads",
+            "3-minute marker: maximum 4 ads",
             flush=True,
         )
         print(
-            "Maximum possible ads across both markers: 8",
+            "Maximum possible ads across all four markers: 16",
             flush=True,
         )
     else:
