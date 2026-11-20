@@ -199,16 +199,16 @@ def validate_narration(narration):
     if not narration or not narration.strip():
         problems.append("the narration is empty")
 
-    if re.search(r"\\b(?:[A-Z]\\.){2,}", narration):
+    if re.search(r"\b(?:[A-Z]\.){2,}", narration):
         problems.append("dotted initials or abbreviations were found")
 
     if re.search(r"(?<![A-Za-z])[A-Z]{2,8}(?![A-Za-z])", narration):
         problems.append("an uppercase acronym or initialism was found")
 
-    if re.search(r"\\d", narration):
+    if re.search(r"\d", narration):
         problems.append("numeric digits were found instead of spoken number wording")
 
-    if re.search(r"\\b(?:U\\.S\\.|U\\.N\\.|E\\.U\\.|U\\.K\\.)\\b", narration, re.I):
+    if re.search(r"\b(?:U\.S\.|U\.N\.|E\.U\.|U\.K\.)\b", narration, re.I):
         problems.append("a dotted country or organization abbreviation was found")
 
     return problems
@@ -439,7 +439,7 @@ def generate_section(
             flush=True,
         )
         prompt += (
-            "\\n\\nIMPORTANT CORRECTION: Your previous response failed "
+            "\n\nIMPORTANT CORRECTION: Your previous response failed "
             "the text-to-speech validation because "
             + "; ".join(problems)
             + ". Regenerate the entire section. Spell out every number "
