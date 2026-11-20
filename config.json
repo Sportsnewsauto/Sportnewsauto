@@ -1,148 +1,68 @@
 {
   "rss_feeds": [
     {
-      "name": "NPR News",
-      "url": "https://feeds.npr.org/1001/rss.xml"
+      "name": "BBC Sport - All Sports",
+      "url": "https://feeds.bbci.co.uk/sport/rss.xml"
     },
     {
-      "name": "PBS NewsHour",
-      "url": "https://www.pbs.org/newshour/feeds/rss/headlines"
+      "name": "Sky Sports - All Sports",
+      "url": "https://www.skysports.com/rss/12040"
     },
     {
-      "name": "ABC News",
-      "url": "https://feeds.abcnews.com/abcnews/topstories"
+      "name": "ESPN - All Sports",
+      "url": "https://www.espn.com/espn/rss/news"
     },
     {
-      "name": "Fox News",
-      "url": "https://moxie.foxnews.com/google-publisher/latest.xml"
+      "name": "The Athletic - All Sports",
+      "url": "https://www.nytimes.com/athletic/rss/news/"
     },
     {
-      "name": "New York Times",
-      "url": "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml"
+      "name": "Yahoo Sports",
+      "url": "https://sports.yahoo.com/rss/"
     },
     {
-      "name": "CBS News via Google News",
-      "url": "https://news.google.com/rss/search?q=site%3Acbsnews.com+when%3A24h&hl=en-US&gl=US&ceid=US%3Aen"
+      "name": "The Guardian - Sport",
+      "url": "https://www.theguardian.com/uk/sport/rss"
     },
     {
-      "name": "NBC News via Google News",
-      "url": "https://news.google.com/rss/search?q=site%3Anbcnews.com+when%3A24h&hl=en-US&gl=US&ceid=US%3Aen"
+      "name": "CBS Sports - All Sports",
+      "url": "https://www.cbssports.com/rss/headlines/"
     },
     {
-      "name": "Associated Press via Google News",
-      "url": "https://news.google.com/rss/search?q=site%3Aapnews.com+when%3A24h&hl=en-US&gl=US&ceid=US%3Aen"
+      "name": "Sports Illustrated",
+      "url": "https://www.si.com/feed"
     },
     {
-      "name": "CNN via Google News",
-      "url": "https://news.google.com/rss/search?q=site%3Acnn.com+when%3A24h&hl=en-US&gl=US&ceid=US%3Aen"
+      "name": "ESPNcricinfo - Cricket",
+      "url": "https://www.espncricinfo.com/rss/content/story/feeds/0.xml"
     },
     {
-      "name": "Politico via Google News",
-      "url": "https://news.google.com/rss/search?q=site%3Apolitico.com+when%3A24h&hl=en-US&gl=US&ceid=US%3Aen"
+      "name": "Formula One - Official News",
+      "url": "https://www.formula1.com/en/latest/all.xml"
     },
     {
-      "name": "The Hill via Google News",
-      "url": "https://news.google.com/rss/search?q=site%3Athehill.com+when%3A24h&hl=en-US&gl=US&ceid=US%3Aen"
+      "name": "Sky News - Sports",
+      "url": "https://feeds.skynews.com/feeds/rss/sports.xml"
     },
     {
-      "name": "USA Today via Google News",
-      "url": "https://news.google.com/rss/search?q=site%3Ausatoday.com+when%3A24h&hl=en-US&gl=US&ceid=US%3Aen"
+      "name": "BBC Sport - Football",
+      "url": "https://feeds.bbci.co.uk/sport/football/rss.xml"
     },
     {
-      "name": "ABC News",
-      "url": "https://abcnews.go.com/abcnews/topstories"
+      "name": "Sky Sports - Football",
+      "url": "https://www.skysports.com/rss/11095"
     },
     {
-      "name": "CBS News",
-      "url": "https://www.cbsnews.com/latest/rss/main"
+      "name": "BBC Sport - Cricket",
+      "url": "https://feeds.bbci.co.uk/sport/cricket/rss.xml"
     },
     {
-      "name": "NBC News",
-      "url": "https://feeds.nbcnews.com/nbcnews/public/news"
+      "name": "BBC Sport - Rugby Union",
+      "url": "https://feeds.bbci.co.uk/sport/rugby-union/rss.xml"
     },
     {
-      "name": "The Washington Post - National",
-      "url": "https://feeds.washingtonpost.com/rss/national"
-    },
-    {
-      "name": "CNBC - Top News",
-      "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114"
-    },
-    {
-      "name": "Axios - Latest News",
-      "url": "https://api.axios.com/feed/"
-    },
-    {
-      "name": "Politico - Politics",
-      "url": "https://rss.politico.com/politics-news.xml"
-    },
-    {
-      "name": "The Hill - Latest News",
-      "url": "https://thehill.com/feed/"
-    },
-    {
-      "name": "Los Angeles Times - Nation and World",
-      "url": "https://www.latimes.com/world-nation/rss2.0.xml"
-    },
-    {
-      "name": "Wall Street Journal - Markets",
-      "url": "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain"
-    },
-    {
-      "name": "Reuters via Google News",
-      "url": "https://news.google.com/rss/search?q=site%3Areuters.com+when%3A24h&hl=en-US&gl=US&ceid=US%3Aen"
-    },
-    {
-      "name": "Bloomberg via Google News",
-      "url": "https://news.google.com/rss/search?q=site%3Abloomberg.com+when%3A24h&hl=en-US&gl=US&ceid=US%3Aen"
-    },
-    {
-      "name": "NPR National",
-      "url": "https://feeds.npr.org/1003/rss.xml"
-    },
-    {
-      "name": "NPR Technology",
-      "url": "https://feeds.npr.org/1019/rss.xml"
-    },
-    {
-      "name": "NBC News Politics",
-      "url": "https://feeds.nbcnews.com/nbcnews/public/politics"
-    },
-    {
-      "name": "NBC News Business",
-      "url": "https://feeds.nbcnews.com/nbcnews/public/business"
-    },
-    {
-      "name": "Fox News Politics",
-      "url": "https://moxie.foxnews.com/google-publisher/politics.xml"
-    },
-    {
-      "name": "Fox News U.S.",
-      "url": "https://moxie.foxnews.com/google-publisher/us.xml"
-    },
-    {
-      "name": "U.S. News - National",
-      "url": "https://www.usnews.com/rss/news"
-    },
-    {
-      "name": "ProPublica Investigations",
-      "url": "https://www.propublica.org/feeds/propublica/main"
-    },
-    {
-      "name": "Christian Science Monitor - U.S.",
-      "url": "https://rss.csmonitor.com/feeds/usa"
-    },
-    {
-      "name": "Reuters U.S. via Google News",
-      "url": "https://news.google.com/rss/search?q=site%3Areuters.com%2Fworld%2Fus-news&hl=en-US&gl=US&ceid=US%3Aen"
-    },
-    {
-      "name": "AP Politics via Google News",
-      "url": "https://news.google.com/rss/search?q=site%3Aapnews.com%2Fhub%2Fpolitics&hl=en-US&gl=US&ceid=US%3Aen"
-    },
-    {
-      "name": "Bloomberg U.S. Economy via Google News",
-      "url": "https://news.google.com/rss/search?q=site%3Abloomberg.com+US+economy&hl=en-US&gl=US&ceid=US%3Aen"
+      "name": "BBC Sport - Tennis",
+      "url": "https://feeds.bbci.co.uk/sport/tennis/rss.xml"
     }
   ],
   "max_story_age_hours": 24,
