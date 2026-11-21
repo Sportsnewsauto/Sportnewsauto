@@ -22,6 +22,7 @@ export default function IntegrationManager() {
   const [secrets, setSecrets] = useState<Record<Provider, string>>({ spreaker: "", groq: "", gemini: "" });
   const [spreakerClientId, setSpreakerClientId] = useState("");
   const [spreakerClientSecret, setSpreakerClientSecret] = useState("");
+  const [spreakerCallbackUrl, setSpreakerCallbackUrl] = useState("");
   const [busy, setBusy] = useState<Provider | "loading" | null>("loading");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -52,6 +53,7 @@ export default function IntegrationManager() {
   }
   useEffect(() => {
     void load();
+    setSpreakerCallbackUrl(`${window.location.origin}/api/integrations/spreaker/callback`);
     const result = new URLSearchParams(window.location.search).get("spreaker");
     const messages: Record<string, string> = {
       connected: "Spreaker account connected successfully. Choose your show below.",
@@ -165,7 +167,8 @@ export default function IntegrationManager() {
     <div className="integration-security"><strong>Encrypted credential storage</strong><p>Credentials are encrypted on the server with AES-256-GCM. The secret value is never returned to the browser. Saved credentials can be tested against each provider; the secret itself is never returned to the browser.</p></div>
     <div className="integration-security">
       <strong>Your own Spreaker Developer App</strong>
-      <p>Every customer uses their own Spreaker Client ID and Client Secret. These are encrypted and saved only to this signed-in account. After you click “Authorize my Spreaker account” and approve access on Spreaker, this website automatically receives and securely stores your access token and refresh token. Do not paste an access token here. In your Spreaker Developer App, register this callback URL: https://sportnewsauto.vercel.app/api/integrations/spreaker/callback</p>
+      <p>Every customer uses their own Spreaker Client ID and Client Secret. These are encrypted and saved only to this signed-in account. After you click “Authorize my Spreaker account” and approve access on Spreaker, this website automatically receives and securely stores your access token and refresh token. Do not paste an access token here. In your Spreaker Developer App, register this callback URL:</p>
+      <p className="integration-saved"><strong>{spreakerCallbackUrl || "Loading callback URL…"}</strong></p>
       <label>Spreaker Client ID<input type="text" autoComplete="off" value={spreakerClientId} onChange={e => setSpreakerClientId(e.target.value)} placeholder="Enter your Spreaker Client ID" /></label>
       <label>Spreaker Client Secret<input type="password" autoComplete="new-password" value={spreakerClientSecret} onChange={e => setSpreakerClientSecret(e.target.value)} placeholder="Enter your Spreaker Client Secret" /></label>
       <div className="integration-actions">
