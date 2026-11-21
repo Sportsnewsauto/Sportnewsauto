@@ -29,7 +29,7 @@ The Spreaker Client ID and Client Secret belong to the platform's registered OAu
 
 Before the worker can process accounts, add these repository secrets:
 
-- `SUPABASE_SERVICE_ROLE_KEY` — the Supabase service-role/secret key. GitHub Actions only. Never add it to website code or Vercel public variables.
+- `SUPABASE_SECRET_KEY` — the Supabase server-only Secret key (`sb_secret_...`). GitHub Actions only; never add it to website code or Vercel public variables. The worker also accepts the older `SUPABASE_SERVICE_ROLE_KEY` name for a legacy `service_role` key.
 - `CREDENTIAL_ENCRYPTION_KEY` — exactly the same base64 key as the Vercel value, so the worker can decrypt credentials saved by the website.
 - `SPREAKER_CLIENT_ID` and `SPREAKER_CLIENT_SECRET` — the same OAuth app credentials as Vercel.
 
