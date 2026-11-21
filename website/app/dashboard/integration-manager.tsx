@@ -100,7 +100,8 @@ export default function IntegrationManager() {
   }
 
   function connectionFor(provider: Provider) { return connections.find(item => item.provider === provider); }
-\n  async function saveShowSelection() {
+
+  async function saveShowSelection() {
     setShowBusy(true); setError(""); setNotice("");
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
