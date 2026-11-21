@@ -44,6 +44,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Please sign in to the Admin account before importing the old automation." }, { status: 401 });
   }
 
+  const adminEmail = process.env.AUTOMATION_ADMIN_EMAIL?.trim().toLowerCase();
+  const secretKey = process.env.SUPABASE_SECRET_KEY?.trim();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!adminEmail || user.email?.toLowerCase() !== adminEmail) {
+    return NextResponse.json({ error: "This import is restricted to the configured Admin account. Sign in with the Admin email." }, { status: 403 });
+  }
+  if (!secretKey || !supabaseUrl) {
+    return NextResponse.json({ error: "Admin setup is incomplete. Add the server-only SUPABASE_SECRET_KEY and AUTOMATION_ADMIN_EMAIL to Vercel, then redeploy." }, { status: 503 });
+  }
+
   const { data: workspace, error: workspaceError } = await supabase
     .from("workspaces")
     .select("daily_episode_limit")
@@ -163,19 +173,6 @@ export async function POST(request: Request) {
     }
   }
 
-  // Upgrade only the explicitly allowlisted Admin account to the Admin
-  // allowance. This uses the server-only Supabase secret key; customers
-  // cannot call this route to raise their own plan or daily limit.
-  const adminEmail = process.env.AUTOMATION_ADMIN_EMAIL?.trim().toLowerCase();
-  const secretKey = process.env.SUPABASE_SECRET_KEY?.trim();
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  if (!adminEmail || user.email?.toLowerCase() !== adminEmail) {
-    return NextResponse.json({ error: "This import is restricted to the configured Admin account. Sign in with the Admin email." }, { status: 403 });
-  }
-  if (!secretKey || !supabaseUrl) {
-    return NextResponse.json({ error: "Admin setup is incomplete. Add the server-only SUPABASE_SECRET_KEY and AUTOMATION_ADMIN_EMAIL to Vercel, then redeploy." }, { status: 503 });
-  }
-
   const adminHeaders: Record<string, string> = {
     apikey: secretKey,
     "Content-Type": "application/json",
@@ -185,7 +182,7 @@ export async function POST(request: Request) {
     adminHeaders.Authorization = `Bearer ${secretKey}`;
   }
   const adminUpdate = await fetch(
-    `${supabaseUrl.replace(/\\/$/, "")}/rest/v1/workspaces?owner_id=eq.${encodeURIComponent(user.id)}`,
+    `${supabaseUrl.endsWith("/") ? supabaseUrl.slice(0, -1) : supabaseUrl}/rest/v1/workspaces?owner_id=eq.${encodeURIComponent(user.id)}`,
     {
       method: "PATCH",
       headers: adminHeaders,
