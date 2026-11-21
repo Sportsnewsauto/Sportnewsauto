@@ -29,6 +29,7 @@ jobs:
       - name: Check required worker secrets
         id: prerequisites
         env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CREDENTIAL_ENCRYPTION_KEY: ${{ secrets.CREDENTIAL_ENCRYPTION_KEY }}
           SPREAKER_CLIENT_ID: ${{ secrets.SPREAKER_CLIENT_ID }}
@@ -57,7 +58,7 @@ jobs:
       - name: Run account-specific podcast jobs
         if: steps.prerequisites.outputs.enabled == 'true'
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CREDENTIAL_ENCRYPTION_KEY: ${{ secrets.CREDENTIAL_ENCRYPTION_KEY }}
           SPREAKER_CLIENT_ID: ${{ secrets.SPREAKER_CLIENT_ID }}
