@@ -39,6 +39,7 @@ create table if not exists public.ad_slots (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id) on delete cascade,
   position_seconds integer not null check (position_seconds between 1 and 7200),
+  ads_max_count integer not null default 4 check (ads_max_count between 1 and 4),
   label text not null default 'Advertisement',
   enabled boolean not null default true,
   created_at timestamptz not null default now(),
