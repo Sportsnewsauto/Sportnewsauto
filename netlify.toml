@@ -2,6 +2,7 @@
   # The Next.js application lives in the website/ folder of this repository.
   base = "website"
   command = "npm run build"
+  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "20"
