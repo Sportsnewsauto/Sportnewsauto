@@ -1,0 +1,53 @@
+name: Import Legacy Sports Automation into Admin
+
+on:
+  workflow_dispatch:
+    inputs:
+      admin_email:
+        description: Exact email address used to sign in to the Admin account
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: legacy-admin-workspace-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install import dependency
+        run: python -m pip install --disable-pip-version-check requests
+
+      - name: Validate required secrets
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          ADMIN_EMAIL: ${{ inputs.admin_email }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SECRET_KEY" ] || [ -z "$ADMIN_EMAIL" ]; then
+            echo "::error::Missing a required Supabase Actions secret or Admin email input."
+            exit 1
+          fi
+
+      - name: Import old automation into the matching Admin workspace
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          ADMIN_EMAIL: ${{ inputs.admin_email }}
+          PYTHONUNBUFFERED: "1"
+        run: python scripts/import_legacy_automation.py
