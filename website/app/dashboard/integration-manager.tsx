@@ -47,7 +47,28 @@ export default function IntegrationManager() {
       setError(cause instanceof Error ? cause.message : "Could not load integrations.");
     } finally { setBusy(null); }
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    const result = new URLSearchParams(window.location.search).get("spreaker");
+    const messages: Record<string, string> = {
+      connected: "Spreaker account connected successfully. Choose your show below.",
+      "app-not-configured": "The website owner must add SPREAKER_CLIENT_ID and SPREAKER_CLIENT_SECRET to Vercel before Spreaker OAuth can start.",
+      "please-sign-in": "Please sign in again before connecting Spreaker.",
+      "state-check-failed": "Spreaker authorization could not be verified. Please try connecting again.",
+      "authorization-cancelled": "Spreaker authorization was cancelled.",
+      "missing-oauth-configuration": "Spreaker OAuth application settings are missing.",
+      "token-exchange-failed": "Spreaker did not accept the OAuth code. Check the app credentials and callback URL.",
+      "account-verification-failed": "The new Spreaker token could not be verified.",
+      "credential-save-failed": "Spreaker connected, but the encrypted credentials could not be saved.",
+      "connection-status-save-failed": "Spreaker connected, but its status could not be saved.",
+      "connection-failed": "Could not complete the Spreaker connection. Please try again.",
+    };
+    if (result && messages[result]) {
+      if (result === "connected") setNotice(messages[result]);
+      else setError(messages[result]);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   async function save(provider: Provider) {
     setBusy(provider); setError(""); setNotice("");
