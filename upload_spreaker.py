@@ -164,13 +164,13 @@ def add_ad_cuepoints(episode_id, headers, duration_ms):
 
     if not valid_cuepoints:
         print(
-            "WARNING: No advertising markers could be added.",
+            "No configured ad marker falls within this episode; continuing without cuepoints.",
             flush=True,
         )
         print("=" * 55, flush=True)
 
         return {
-            "success": False,
+            "success": True,
             "cuepoints": [],
             "skipped": skipped_cuepoints,
             "reason": "Episode too short for the configured markers.",
