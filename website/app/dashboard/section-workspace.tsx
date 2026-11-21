@@ -217,7 +217,13 @@ function WorkspaceProfile() {
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true); setError(""); setNotice("");
-    const { error } = await supabase.from("workspaces").update({ name, timezone, updated_at: new Date().toISOString() }).not("owner_id", "is", null);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      setError("Please sign in again.");
+      setSaving(false);
+      return;
+    }
+    const { error } = await supabase.from("workspaces").update({ name, timezone, updated_at: new Date().toISOString() }).eq("owner_id", user.id);
     if (error) setError(error.message);
     else setNotice("Workspace details saved.");
     setSaving(false);
