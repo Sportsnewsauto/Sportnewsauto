@@ -35,3 +35,25 @@ alter table public.workspace_settings
 -- Idempotency key for one generated episode per scheduled slot per workspace.
 create unique index if not exists publishing_jobs_owner_type_schedule_unique
   on public.publishing_jobs(owner_id, job_type, scheduled_at);
+
+
+-- Prevent an authenticated user from changing their own subscription tier or allowance.
+-- Billing/admin code using the service role can still update these fields.
+create or replace function public.restrict_workspace_plan_changes()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if auth.role() = 'authenticated' then
+    new.plan := old.plan;
+    new.daily_episode_limit := old.daily_episode_limit;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_workspace_plan_fields on public.workspaces;
+create trigger protect_workspace_plan_fields
+  before update on public.workspaces
+  for each row execute function public.restrict_workspace_plan_changes();
