@@ -150,3 +150,48 @@ create index if not exists news_feeds_owner_enabled_idx on public.news_feeds(own
 create index if not exists ad_slots_owner_position_idx on public.ad_slots(owner_id, position_seconds);
 create index if not exists episodes_owner_created_idx on public.episodes(owner_id, created_at desc);
 create index if not exists publishing_jobs_owner_status_idx on public.publishing_jobs(owner_id, status, created_at desc);
+
+
+-- Atomic owner-checked credential write. The encrypted credential table intentionally
+-- has no SELECT grant for authenticated clients.
+create or replace function public.save_integration_credential(
+  p_provider text,
+  p_ciphertext text,
+  p_iv text,
+  p_auth_tag text,
+  p_key_version text default 'aes-256-gcm-v1'
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required';
+  end if;
+  if p_provider not in ('spreaker', 'groq', 'gemini') then
+    raise exception 'Unsupported integration provider';
+  end if;
+  if coalesce(length(p_ciphertext), 0) = 0
+     or coalesce(length(p_iv), 0) = 0
+     or coalesce(length(p_auth_tag), 0) = 0 then
+    raise exception 'Encrypted credential fields are required';
+  end if;
+
+  insert into public.integration_credentials (
+    owner_id, provider, ciphertext, iv, auth_tag, key_version, updated_at
+  ) values (
+    auth.uid(), p_provider, p_ciphertext, p_iv, p_auth_tag, p_key_version, now()
+  )
+  on conflict (owner_id, provider) do update set
+    ciphertext = excluded.ciphertext,
+    iv = excluded.iv,
+    auth_tag = excluded.auth_tag,
+    key_version = excluded.key_version,
+    updated_at = now();
+end;
+$$;
+
+revoke all on function public.save_integration_credential(text, text, text, text, text) from public;
+grant execute on function public.save_integration_credential(text, text, text, text, text) to authenticated;
