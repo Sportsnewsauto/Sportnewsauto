@@ -120,7 +120,7 @@ export default function IntegrationManager() {
 
 
   return <section className="panel integration-list">
-    <div className="integration-security"><strong>Encrypted credential storage</strong><p>Credentials are encrypted on the server with AES-256-GCM. The secret value is never returned to the browser. Connections remain marked unverified until a provider test is added.</p></div>
+    <div className="integration-security"><strong>Encrypted credential storage</strong><p>Credentials are encrypted on the server with AES-256-GCM. The secret value is never returned to the browser. Saved credentials can be tested against each provider; the secret itself is never returned to the browser.</p></div>
     {(["spreaker", "groq", "gemini"] as const).map(provider => {
       const info = providerInfo[provider];
       const saved = connectionFor(provider);
