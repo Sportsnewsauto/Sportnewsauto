@@ -128,7 +128,7 @@ function ConfigurationForm({ section }: { section: "podcast-settings" | "ai-conf
           </div>
         </>}
         {section === "ai-configuration" && <>
-          <label>AI provider<select value={form.ai_provider} onChange={e => { const value = e.target.value as "groq" | "gemini"; update("ai_provider", value); update("ai_model", value === "groq" ? "openai/gpt-oss-120b" : "gemini-2.5-flash"); }}><option value="groq">Groq</option><option value="gemini">Google Gemini</option></select></label>
+          <label>AI provider<select value={form.ai_provider} onChange={e => { const value = e.target.value as "groq" | "gemini"; update("ai_provider", value); update("ai_model", value === "groq" ? "openai/gpt-oss-120b" : "gemini-3.5-flash-lite"); }}><option value="groq">Groq</option><option value="gemini">Google Gemini</option></select></label>
           <label>Model identifier<input required value={form.ai_model} onChange={e => update("ai_model", e.target.value)} /></label>
           <label>Writing instructions<textarea rows={6} maxLength={5000} value={form.ai_writing_instructions} onChange={e => update("ai_writing_instructions", e.target.value)} placeholder="Example: Focus on verified sports news, explain abbreviations for narration, and avoid inventing quotes or statistics." /></label>
           <Notice>API keys are managed separately in API Connections. Do not paste keys into this form.</Notice>
