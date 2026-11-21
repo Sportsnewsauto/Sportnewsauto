@@ -171,9 +171,11 @@ export default function IntegrationManager() {
       <div className="integration-actions">
         <button className="btn btn-primary" disabled={busy !== null || !spreakerClientId.trim() || !spreakerClientSecret.trim()} onClick={() => void saveSpreakerApp()}>{busy === "spreaker" ? "Saving…" : "Save my Spreaker app securely"}</button>
         <a className="btn btn-outline" href="/api/integrations/spreaker/connect">Authorize my Spreaker account</a>
+        {connectionFor("spreaker") && <button className="btn btn-outline" disabled={busy !== null} onClick={() => void remove("spreaker")}>Remove Spreaker connection</button>}
       </div>
+      {connectionFor("spreaker") && <p className="integration-saved">Spreaker setup: <strong>{connectionFor("spreaker")?.status === "connected" ? "Account connected" : "App credentials saved"}</strong></p>}
     </div>
-    {(["spreaker", "groq", "gemini"] as const).map(provider => {
+    {(["groq", "gemini"] as const).map(provider => {
       const info = providerInfo[provider];
       const saved = connectionFor(provider);
       return <div className="integration-card" key={provider}>
