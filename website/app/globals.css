@@ -179,3 +179,5 @@ h1{font-size:clamp(42px,5.4vw,64px);line-height:1.06;margin:20px 0}
   .integration-heading{flex-direction:column}
   .slot-row{grid-template-columns:1fr}
 }
+
+.integration-card select{width:100%;padding:12px 13px;border:1px solid #dce3ed;border-radius:10px;font:inherit;font-size:14px;background:#fff;color:var(--ink)}
