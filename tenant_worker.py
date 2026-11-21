@@ -26,7 +26,9 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 ROOT = Path(__file__).resolve().parent
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
-SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+if not SUPABASE_SECRET_KEY:
+    raise RuntimeError("Add SUPABASE_SECRET_KEY to GitHub Actions secrets.")
 CREDENTIAL_ENCRYPTION_KEY = base64.b64decode(os.environ["CREDENTIAL_ENCRYPTION_KEY"])
 SPREAKER_CLIENT_ID = os.getenv("SPREAKER_CLIENT_ID", "")
 SPREAKER_CLIENT_SECRET = os.getenv("SPREAKER_CLIENT_SECRET", "")
@@ -46,8 +48,8 @@ class SupabaseRest:
         self.base = f"{SUPABASE_URL}/rest/v1"
         self.session = requests.Session()
         self.session.headers.update({
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "apikey": SUPABASE_SECRET_KEY,
+            "Authorization": f"Bearer {SUPABASE_SECRET_KEY}",
             "Content-Type": "application/json",
         })
 
