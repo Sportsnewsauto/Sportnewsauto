@@ -20,7 +20,7 @@ export default async function Dashboard() {
         <p style={{color:"var(--muted)",fontSize:13}}>Your account and workspace are stored in your Supabase database. Only your signed-in account can read or update this workspace.</p>
       </div>
       <div className="panel"><h2>Next setup steps</h2>
-        <div className="connection"><span><strong>AI and Spreaker connections</strong><br/><small>Secure server-side credential storage must be built before API keys are requested.</small></span><span className="pill">Coming next</span></div>
+        <div className="connection"><span><strong>AI and Spreaker connections</strong><br/><small>Encrypted credential storage is implemented. Finish database and Vercel key setup before connecting providers.</small></span><span className="pill">Coming next</span></div>
         <div className="connection"><span><strong>Podcast schedule and publishing</strong><br/><small>Episode generation, scheduling and publishing are not connected yet.</small></span><span className="pill">Coming next</span></div>
       </div>
     </section>
