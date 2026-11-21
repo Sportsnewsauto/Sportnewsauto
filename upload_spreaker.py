@@ -29,6 +29,33 @@ AD_CUEPOINTS = [
 ]
 
 
+def get_configured_ad_cuepoints():
+    """Read per-workspace ad marker settings, defaulting to legacy behavior."""
+    raw = os.getenv("AD_CUEPOINTS_JSON", "").strip()
+    if not raw:
+        return AD_CUEPOINTS
+    try:
+        entries = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError("AD_CUEPOINTS_JSON must contain a valid JSON array.") from exc
+    if not isinstance(entries, list):
+        raise ValueError("AD_CUEPOINTS_JSON must contain a JSON array.")
+
+    result = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            timecode = int(entry.get("timecode", 0))
+            maximum = int(entry.get("ads_max_count", 4))
+        except (TypeError, ValueError):
+            continue
+        if timecode < 1000 or not 1 <= maximum <= 4:
+            continue
+        result.append({"timecode": timecode, "ads_max_count": maximum})
+    return sorted(result, key=lambda item: item["timecode"])
+
+
 def find_episode_id(data):
     """Find episode_id in Spreaker's JSON response."""
     if isinstance(data, dict):
@@ -92,15 +119,16 @@ def add_ad_cuepoints(episode_id, headers, duration_ms):
     Markers beyond the audio duration are skipped.
     """
 
+    configured_cuepoints = get_configured_ad_cuepoints()
     valid_cuepoints = [
         cuepoint
-        for cuepoint in AD_CUEPOINTS
+        for cuepoint in configured_cuepoints
         if cuepoint["timecode"] < duration_ms
     ]
 
     skipped_cuepoints = [
         cuepoint
-        for cuepoint in AD_CUEPOINTS
+        for cuepoint in configured_cuepoints
         if cuepoint["timecode"] >= duration_ms
     ]
 
@@ -529,6 +557,27 @@ def main():
                     "Check the API error before retrying the workflow."
                 )
 
+    publishing_mode = os.getenv("PUBLISHING_MODE", "automatic").strip().lower()
+    if publishing_mode not in {"automatic", "review"}:
+        raise ValueError("PUBLISHING_MODE must be 'automatic' or 'review'.")
+
+    if publishing_mode == "review":
+        save_result(
+            episode_id=episode_id,
+            show_id=show_id,
+            title=title,
+            status="review_required",
+            details={
+                "audio_uploaded": True,
+                "audio_duration_minutes": round(duration_ms / 60000, 2),
+                "upload_response": upload_data,
+                "advertising_markers": cuepoint_result,
+                "note": "Episode remains an unpublished Spreaker draft for owner review.",
+            },
+        )
+        print("Review mode enabled: audio and metadata uploaded; episode left as a draft.", flush=True)
+        return
+
     # STEP 4: Publish the episode immediately (Spreaker expects UTC).
     published_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     print(f"Publishing episode publicly at {published_at} UTC...", flush=True)
@@ -593,26 +642,13 @@ def main():
     print("Episode published publicly on Spreaker.", flush=True)
 
     if cuepoint_result.get("success"):
-        print(
-            "30-second marker: maximum 4 ads",
-            flush=True,
-        )
-        print(
-            "1-minute marker: maximum 4 ads",
-            flush=True,
-        )
-        print(
-            "2-minute marker: maximum 4 ads",
-            flush=True,
-        )
-        print(
-            "3-minute marker: maximum 4 ads",
-            flush=True,
-        )
-        print(
-            "Maximum possible ads across all four markers: 16",
-            flush=True,
-        )
+        for cuepoint in cuepoint_result.get("cuepoints", []):
+            seconds = cuepoint["timecode"] // 1000
+            maximum = cuepoint["ads_max_count"]
+            print(
+                f"Ad marker at {seconds} seconds: maximum {maximum} ads",
+                flush=True,
+            )
     else:
         print(
             "WARNING: Episode uploaded, but its duration "
