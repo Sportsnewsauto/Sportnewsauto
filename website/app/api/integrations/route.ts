@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { encryptCredential } from "@/lib/server/credential-vault";
+import { decryptCredential, encryptCredential } from "@/lib/server/credential-vault";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +10,10 @@ type Provider = typeof providers[number];
 
 function isProvider(value: unknown): value is Provider {
   return typeof value === "string" && providers.includes(value as Provider);
+}
+
+function providerInfoLabel(provider: Provider): string {
+  return provider === "spreaker" ? "Spreaker" : provider === "groq" ? "Groq" : "Google Gemini";
 }
 
 export async function GET() {
@@ -37,9 +41,59 @@ export async function POST(request: NextRequest) {
 
   let body: unknown;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
-  const input = body as { provider?: unknown; secret?: unknown };
-  if (!isProvider(input?.provider) || typeof input.secret !== "string") {
-    return NextResponse.json({ error: "Choose a provider and enter its API credential." }, { status: 400 });
+  const input = body as { provider?: unknown; secret?: unknown; action?: unknown };
+  if (!isProvider(input?.provider)) {
+    return NextResponse.json({ error: "Choose a valid provider." }, { status: 400 });
+  }
+
+  if (input.action === "verify") {
+    const { data: stored, error: readError } = await supabase.rpc("get_integration_credential", {
+      p_provider: input.provider,
+    });
+    if (readError) return NextResponse.json({ error: "Credential lookup is not available. Apply the latest Supabase migration 0002." }, { status: 503 });
+    const row = Array.isArray(stored) ? stored[0] : stored;
+    if (!row) return NextResponse.json({ error: "Save a credential for this provider first." }, { status: 404 });
+
+    let secret: string;
+    try { secret = decryptCredential(row); }
+    catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Could not decrypt this credential.";
+      return NextResponse.json({ error: message }, { status: 503 });
+    }
+
+    const endpoints: Record<Provider, { url: string; headers: Record<string, string> }> = {
+      spreaker: { url: "https://api.spreaker.com/v2/me", headers: { Authorization: `Bearer ${secret}` } },
+      groq: { url: "https://api.groq.com/openai/v1/models", headers: { Authorization: `Bearer ${secret}` } },
+      gemini: { url: "https://generativelanguage.googleapis.com/v1beta/models", headers: { "x-goog-api-key": secret } },
+    };
+
+    let providerResponse: Response;
+    try {
+      providerResponse = await fetch(endpoints[input.provider].url, {
+        method: "GET",
+        headers: endpoints[input.provider].headers,
+        cache: "no-store",
+        signal: AbortSignal.timeout(8000),
+      });
+    } catch {
+      return NextResponse.json({ error: "Could not reach the provider right now. Try verification again." }, { status: 502 });
+    }
+
+    const nextStatus = providerResponse.ok ? "connected" : "invalid";
+    const { error: statusError } = await supabase.from("integration_connections").update({
+      status: nextStatus,
+      updated_at: new Date().toISOString(),
+    }).eq("owner_id", user.id).eq("provider", input.provider);
+    if (statusError) return NextResponse.json({ error: "Provider replied, but the connection status could not be updated." }, { status: 503 });
+
+    if (!providerResponse.ok) {
+      return NextResponse.json({ error: `${providerInfoLabel(input.provider)} rejected this credential (HTTP ${providerResponse.status}). Check the key and save it again.` }, { status: 422 });
+    }
+    return NextResponse.json({ success: true, message: `${providerInfoLabel(input.provider)} connection verified.` }, { headers: { "Cache-Control": "no-store" } });
+  }
+
+  if (typeof input.secret !== "string") {
+    return NextResponse.json({ error: "Enter the API credential to save." }, { status: 400 });
   }
   const secret = input.secret.trim();
   if (secret.length < 10 || secret.length > 8192 || /[\r\n]/.test(secret)) {
@@ -73,7 +127,7 @@ export async function POST(request: NextRequest) {
   }, { onConflict: "owner_id,provider" });
   if (statusError) return NextResponse.json({ error: "Credential encrypted, but its connection status could not be saved." }, { status: 503 });
 
-  return NextResponse.json({ success: true, message: "Credential encrypted and saved. Provider verification is not connected yet." }, { status: 201, headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ success: true, message: "Credential encrypted and saved. Verify it before using it." }, { status: 201, headers: { "Cache-Control": "no-store" } });
 }
 
 export async function DELETE(request: NextRequest) {
