@@ -132,6 +132,10 @@ def add_ad_cuepoints(episode_id, headers, duration_ms):
         if cuepoint["timecode"] >= duration_ms
     ]
 
+    if not configured_cuepoints:
+        print("No ad markers are enabled for this workspace; continuing without cuepoints.", flush=True)
+        return {"success": True, "cuepoints": [], "skipped": [], "reason": "No ad markers configured."}
+
     print("", flush=True)
     print("=" * 55, flush=True)
     print("ADDING SPREAKER ADVERTISING MARKERS", flush=True)
