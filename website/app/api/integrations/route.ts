@@ -194,12 +194,39 @@ export async function POST(request: NextRequest) {
   if (input.provider === "spreaker" && input.action === "save-app") {
     const clientId = typeof input.clientId === "string" ? input.clientId.trim() : "";
     const clientSecret = typeof input.clientSecret === "string" ? input.clientSecret.trim() : "";
-    if (clientId.length < 3 || clientId.length > 512 || clientSecret.length < 8 || clientSecret.length > 4096 || /[\\r\\n]/.test(clientId + clientSecret)) {
-      return NextResponse.json({ error: "Enter a valid Spreaker Client ID and Client Secret." }, { status: 400 });
+    const accessToken = typeof input.accessToken === "string" ? input.accessToken.trim() : "";
+    if (
+      clientId.length < 3 || clientId.length > 512 ||
+      clientSecret.length < 8 || clientSecret.length > 4096 ||
+      accessToken.length < 4 || accessToken.length > 8192 ||
+      /[\\r\\n]/.test(clientId + clientSecret + accessToken)
+    ) {
+      return NextResponse.json({ error: "Enter your Spreaker Client ID, Client Secret, and Access Token." }, { status: 400 });
     }
+
+    // Check this customer's token with Spreaker before marking their connection active.
+    let tokenCheck: Response;
+    try {
+      tokenCheck = await fetch("https://api.spreaker.com/v2/me", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+        signal: AbortSignal.timeout(8000),
+      });
+    } catch {
+      return NextResponse.json({ error: "Could not reach Spreaker to verify your Access Token. Try again." }, { status: 502 });
+    }
+    if (!tokenCheck.ok) {
+      return NextResponse.json({ error: "Spreaker rejected this Access Token. Check that it belongs to the same Spreaker account you want to publish from." }, { status: 422 });
+    }
+
     let encrypted;
-    try { encrypted = encryptCredential(JSON.stringify({ client_id: clientId, client_secret: clientSecret })); }
-    catch (cause) {
+    try {
+      encrypted = encryptCredential(JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        access_token: accessToken,
+      }));
+    } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Credential vault is not configured.";
       return NextResponse.json({ error: message }, { status: 503 });
     }
@@ -210,13 +237,17 @@ export async function POST(request: NextRequest) {
       p_auth_tag: encrypted.auth_tag,
       p_key_version: encrypted.key_version,
     });
-    if (saveError) return NextResponse.json({ error: "Could not securely save your Spreaker app credentials." }, { status: 503 });
+    if (saveError) return NextResponse.json({ error: "Could not securely save your Spreaker credentials." }, { status: 503 });
+
     const { error: statusError } = await supabase.from("integration_connections").upsert({
-      owner_id: user.id, provider: "spreaker", status: "saved_unverified",
-      masked_suffix: clientId.slice(-4), updated_at: new Date().toISOString(),
+      owner_id: user.id, provider: "spreaker", status: "connected",
+      masked_suffix: accessToken.slice(-4), updated_at: new Date().toISOString(),
     }, { onConflict: "owner_id,provider" });
-    if (statusError) return NextResponse.json({ error: "App credentials saved, but connection status could not be updated." }, { status: 503 });
-    return NextResponse.json({ success: true, message: "Your Spreaker Client ID and Client Secret are encrypted and saved to your account." }, { status: 201 });
+    if (statusError) return NextResponse.json({ error: "Credentials saved, but the connection status could not be updated." }, { status: 503 });
+    return NextResponse.json({
+      success: true,
+      message: "Your Spreaker Client ID, Client Secret, and Access Token were verified and encrypted for this account.",
+    }, { status: 201, headers: { "Cache-Control": "no-store" } });
   }
 
   if (input.action === "verify") {
