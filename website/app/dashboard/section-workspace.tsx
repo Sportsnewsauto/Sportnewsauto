@@ -162,8 +162,13 @@ function EpisodesList() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [dailyLimit, setDailyLimit] = useState(1);
+  const [plan, setPlan] = useState("free");
   useEffect(() => {
     let active = true;
+    void supabase.from("workspaces").select("plan,daily_episode_limit").maybeSingle().then(({ data }) => {
+      if (active && data) { setPlan(data.plan); setDailyLimit(data.daily_episode_limit); }
+    });
     void supabase.from("episodes").select("id,title,status,created_at,published_at").order("created_at", { ascending: false }).limit(50)
       .then(({ data, error }) => {
         if (!active) return;
@@ -203,7 +208,7 @@ function EpisodesList() {
   }
 
   return <section className="dash-main">
-    <div className="dash-top"><div><p className="section-kicker">WORKSPACE</p><h1>Episodes</h1><p>Generated and published episodes for this account.</p></div><span className="pill">Free plan: 1 per day</span></div>
+    <div className="dash-top"><div><p className="section-kicker">WORKSPACE</p><h1>Episodes</h1><p>Generated and published episodes for this account.</p></div><span className="pill">{plan === "admin" ? `Admin plan: ${dailyLimit} per day` : `Free plan: ${dailyLimit} per day`}</span></div>
     <div className="panel">
       {error && <Notice error>{error}</Notice>}
       {notice && <Notice>{notice}</Notice>}
