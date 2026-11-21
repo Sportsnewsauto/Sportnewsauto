@@ -87,7 +87,7 @@ export async function POST(request: Request) {
 
   const settings = {
     owner_id: user.id,
-    podcast_name: existingSettings?.podcast_name ?? "My Sports Podcast",
+    podcast_name: existingSettings?.podcast_name ?? "Sports News Podcast",
     podcast_description: existingSettings?.podcast_description ?? "",
     category: existingSettings?.category ?? "Sports",
     language: existingSettings?.language ?? "en",
