@@ -1,36 +1,56 @@
 # Automate Spreaker Podcast — Website
 
-Next.js 15 frontend with Supabase Auth and PostgreSQL as the first real account/database foundation.
+Next.js 15 website for Automate Spreaker Podcast, using Supabase Auth and PostgreSQL.
 
 ## Product decisions
 
 - Light theme.
-- Monthly subscriptions; free plan allows one episode per day.
-- Users bring their own Groq/Gemini and Spreaker credentials.
+- Monthly subscription model; free plan allows one episode per day.
+- Each account owns its own Spreaker, Groq and Gemini credentials.
 - Platform-provided Kokoro text-to-speech.
-- Automatic publishing or review-and-approve mode.
+- Automatic publishing or review-before-publishing preference.
+- Account timezone defaults to Africa/Nairobi.
+- Eight evenly spaced schedule times are provided as an editable starting schedule.
+
+## Environment variables
+
+Set these in Vercel (and in `website/.env.local` for local development):
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `CREDENTIAL_ENCRYPTION_KEY` — server-only, base64-encoded 32-byte key used by the AES-256-GCM credential vault. Never prefix it with `NEXT_PUBLIC_`, commit it, or add it to browser code.
+
+The public Supabase publishable key is safe to expose in the browser when Row Level Security is correctly enabled. Never use a Supabase service-role key in the website.
 
 ## Supabase setup
 
 1. Create a Supabase project.
-2. In **Project Settings → API**, copy the project URL and anon/public key.
-3. Put them in `website/.env.local` as `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-4. In Supabase **SQL Editor**, run `supabase/migrations/0001_accounts_and_workspaces.sql`.
-5. In Supabase **Authentication → URL Configuration**, set the Site URL to your deployed website (or `http://localhost:3000` while developing) and add the matching `/auth/callback` redirect URL.
-6. Run the site with `cd website && npm install && npm run dev`.
+2. Set the project URL and publishable key in the environment variables.
+3. In Supabase SQL Editor, run `supabase/migrations/0001_accounts_and_workspaces.sql`.
+4. Then run `supabase/migrations/0002_workspace_configuration_and_jobs.sql`.
+5. In Supabase Authentication → URL Configuration, set the Site URL to the deployed website and add the deployed `/auth/callback` URL as an allowed redirect.
+6. Deploy the website.
 
-Email/password registration and login are enabled. If email confirmation is enabled in Supabase, users must confirm their email before signing in. The dashboard requires a valid Supabase session.
+The second migration adds per-user workspace settings, RSS feed records, advertising cue-point settings, episode and publishing-job records, integration status, encrypted provider credential storage, and owner-checked credential RPC functions.
 
-## Database and security
+## Implemented
 
-The migration creates a profile and one private workspace per user. A database trigger creates them when Supabase Auth creates a user. Row Level Security policies restrict profile/workspace reads and writes to the authenticated owner. The browser only receives the Supabase anon key; never put a service-role key in the website.
+- Email/password registration, confirmation, login and logout.
+- Protected dashboard and private workspaces.
+- Working dashboard navigation with individual section pages.
+- Podcast profile, AI provider/model, writing instruction, Kokoro voice, publishing mode, timezone and schedule preferences.
+- Per-account RSS feed management with starter sources based on the existing repository feed configuration.
+- Per-account advertising cue-point positions, including 30, 60, 120 and 180 seconds as starter slots.
+- Server-side AES-256-GCM encryption for Spreaker, Groq and Gemini credentials.
+- Provider credential verification endpoints for Spreaker `GET /v2/me`, Groq model listing and Gemini model listing.
+- Episode list and subscription status screens.
 
-## Current scope and limitations
+## Still requires external setup or implementation
 
-Implemented: registration, login, logout, session-aware dashboard, and private profile/workspace tables.
+- Apply Supabase migration 0002 before using saved settings, feeds, advertising or integrations.
+- Add `CREDENTIAL_ENCRYPTION_KEY` to Vercel before saving provider credentials.
+- Complete actual per-user episode generation, audio rendering, ad insertion, review/publish execution and Spreaker publishing worker integration.
+- Configure a secure background worker to process queued jobs. The existing repository-wide GitHub Actions automation is separate and must not be treated as a multi-tenant worker.
+- Connect a payment provider and define paid plan pricing before charging users.
 
-Not yet implemented: integration credential forms/storage, credential encryption, per-user podcast jobs, episode records, payment/billing, and Spreaker publishing. Do not collect provider API keys until the server-side encrypted credential vault is implemented.
-
-## Production architecture
-
-Deploy the Next.js site and FastAPI API to persistent hosting, and use Supabase for Auth/PostgreSQL. GitHub Actions may remain a bounded processing worker, but it is not the web server or database.
+The website does not currently generate or publish episodes from these saved settings. UI status labels must remain clear until a secure background worker is deployed and tested.
