@@ -29,6 +29,9 @@ $$;
 revoke all on function public.delete_integration_credential(text) from public;
 grant execute on function public.delete_integration_credential(text) to authenticated;
 
+alter table public.workspace_settings
+  add column if not exists automation_enabled boolean not null default false;
+
 -- Idempotency key for one generated episode per scheduled slot per workspace.
 create unique index if not exists publishing_jobs_owner_type_schedule_unique
   on public.publishing_jobs(owner_id, job_type, scheduled_at);
