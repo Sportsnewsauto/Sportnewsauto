@@ -108,3 +108,25 @@ h1{font-size:clamp(42px,5.4vw,64px);line-height:1.06;margin:20px 0}
 .signout-button{border:0;background:transparent;width:100%;text-align:left;cursor:pointer}
 .signout-button:disabled{opacity:.6;cursor:wait}
 @media(max-width:560px){.auth-card{padding:25px 20px}}
+
+
+/* Dashboard navigation */
+.sidebar-nav{display:grid;gap:2px}
+.sidebar-nav .side-link{width:100%;border:0;background:transparent;text-align:left;cursor:pointer;transition:background .15s ease,color .15s ease}
+.sidebar-nav .side-link:hover{background:#f5f8fc;color:var(--ink)}
+.sidebar-nav .side-link:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.section-kicker{font-size:10px!important;font-weight:800;letter-spacing:1px;color:var(--blue)!important;margin:0 0 7px!important}
+.section-placeholder{max-width:850px}
+.section-placeholder h2{margin:18px 0 9px}
+.section-placeholder h3{font-size:14px;letter-spacing:-.2px;margin:22px 0 8px}
+.section-placeholder p{font-size:14px;line-height:1.7;color:var(--muted)}
+.section-placeholder ul{padding-left:20px;color:#536176;font-size:14px;line-height:1.9;margin-bottom:24px}
+.section-placeholder .security-note{padding:12px 14px;border-radius:10px;background:#fff7e8;color:#805600;font-size:13px}
+@media(max-width:850px){
+  .sidebar{display:block;padding:14px 16px;border-right:0;border-bottom:1px solid var(--line)}
+  .sidebar .brand{margin:0 8px 12px}
+  .sidebar-nav{display:flex;align-items:center;gap:4px;overflow-x:auto;padding:0 0 5px;scrollbar-width:thin}
+  .sidebar-nav .side-label{display:none}
+  .sidebar-nav .side-link{width:auto;flex:0 0 auto;white-space:nowrap;margin:0}
+  .sidebar-nav .signout-button{width:auto}
+}
