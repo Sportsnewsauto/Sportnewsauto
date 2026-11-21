@@ -16,6 +16,30 @@ export default function AuthForm({ mode }: { mode: Mode }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  async function resendConfirmation() {
+    if (!email.trim()) {
+      setError("Enter your email address first.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: email.trim(),
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) throw error;
+      setMessage("A new confirmation email has been requested. Check your inbox and use the newest email.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not resend the confirmation email. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -62,6 +86,11 @@ export default function AuthForm({ mode }: { mode: Mode }) {
           {error && <p className="auth-error" role="alert">{error}</p>}
           {message && <p className="auth-notice" role="status">{message}</p>}
           <button className="btn btn-primary auth-submit" disabled={busy}>{busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}</button>
+          {mode === "signup" && (
+            <button type="button" className="btn btn-outline auth-submit" onClick={resendConfirmation} disabled={busy}>
+              {busy ? "Please wait…" : "Resend confirmation email"}
+            </button>
+          )}
         </form>
         <p className="auth-switch">{mode === "signup" ? "Already have an account?" : "New to Automate Spreaker Podcast?"}{" "}<Link href={mode === "signup" ? "/login" : "/signup"}>{mode === "signup" ? "Sign in" : "Create an account"}</Link></p>
         <p className="microcopy">Your account is private. Never share your API keys or passwords with anyone.</p>
