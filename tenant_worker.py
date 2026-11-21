@@ -104,7 +104,10 @@ def decrypt_record(row: dict[str, Any]) -> str:
 def parse_spreaker_bundle(serialized: str) -> dict[str, Any]:
     try:
         item = json.loads(serialized)
-        if isinstance(item, dict) and isinstance(item.get("access_token"), str):
+        if isinstance(item, dict) and any(
+            isinstance(item.get(key), str)
+            for key in ("access_token", "client_id", "client_secret")
+        ):
             return item
     except json.JSONDecodeError:
         pass
