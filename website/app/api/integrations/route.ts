@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
   let body: unknown;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
-  const input = body as { provider?: unknown; secret?: unknown; action?: unknown; clientId?: unknown; clientSecret?: unknown };
+  const input = body as { provider?: unknown; secret?: unknown; action?: unknown; clientId?: unknown; clientSecret?: unknown; showId?: unknown };
   if (!isProvider(input?.provider)) {
     return NextResponse.json({ error: "Choose a valid provider." }, { status: 400 });
   }
