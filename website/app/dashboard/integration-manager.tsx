@@ -8,7 +8,7 @@ type Connection = { provider: Provider; status: string; masked_suffix: string; u
 type SpreakerShow = { show_id: string; title: string; site_url: string };
 
 const providerInfo: Record<Provider, { title: string; description: string; placeholder: string }> = {
-  spreaker: { title: "Spreaker", description: "OAuth access token used to connect your show and publish episodes.", placeholder: "Paste your Spreaker access token" },
+  spreaker: { title: "Spreaker", description: "Connect your Spreaker account using secure OAuth, then choose the show for this workspace.", placeholder: "Optional legacy access-token fallback" },
   groq: { title: "Groq", description: "API key used for episode script and metadata generation.", placeholder: "Paste your Groq API key" },
   gemini: { title: "Google Gemini", description: "API key used for script and metadata generation or fallback.", placeholder: "Paste your Gemini API key" },
 };
@@ -121,13 +121,14 @@ export default function IntegrationManager() {
 
   return <section className="panel integration-list">
     <div className="integration-security"><strong>Encrypted credential storage</strong><p>Credentials are encrypted on the server with AES-256-GCM. The secret value is never returned to the browser. Saved credentials can be tested against each provider; the secret itself is never returned to the browser.</p></div>
+    <div className="integration-security"><strong>Connect your Spreaker account</strong><p>Use Spreaker OAuth to authorize this workspace. The website securely stores the access and refresh tokens. The app Client ID and Client Secret are configured by the website owner on the server, never in public browser code.</p><a className="btn btn-primary" href="/api/integrations/spreaker/connect">Connect Spreaker account</a></div>
     {(["spreaker", "groq", "gemini"] as const).map(provider => {
       const info = providerInfo[provider];
       const saved = connectionFor(provider);
       return <div className="integration-card" key={provider}>
         <div className="integration-heading"><div><h2>{info.title}</h2><p>{info.description}</p></div><span className={saved?.status === "connected" ? "status" : saved?.status === "invalid" ? "auth-error" : saved ? "pill" : "status-muted"}>{saved?.status === "connected" ? "Verified" : saved?.status === "invalid" ? "Needs attention" : saved ? "Saved · unverified" : "Not connected"}</span></div>
         {saved && <p className="integration-saved">Saved credential ending in <strong>•••• {saved.masked_suffix}</strong></p>}
-        <label>{saved ? "Replace credential" : "Credential"}
+        <label>{provider === "spreaker" ? "Manual access token (optional fallback)" : saved ? "Replace credential" : "Credential"}
           <input type="password" autoComplete="off" value={secrets[provider]} onChange={e => setSecrets(current => ({ ...current, [provider]: e.target.value }))} placeholder={info.placeholder} />
         </label>
         <div className="integration-actions">
