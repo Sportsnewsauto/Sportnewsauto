@@ -32,7 +32,12 @@ const adSlots = [
   { position_seconds: 180, ads_max_count: 4, label: "Ad break at 3 minutes", enabled: true },
 ];
 
-export async function POST() {
+export async function POST(request: Request) {
+  const origin = request.headers.get("origin");
+  if (origin && origin !== new URL(request.url).origin) {
+    return NextResponse.json({ error: "Cross-site requests are not allowed." }, { status: 403 });
+  }
+
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
