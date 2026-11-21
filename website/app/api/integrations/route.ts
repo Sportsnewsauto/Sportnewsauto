@@ -184,8 +184,8 @@ export async function DELETE(request: NextRequest) {
   const provider = request.nextUrl.searchParams.get("provider");
   if (!isProvider(provider)) return NextResponse.json({ error: "Choose a valid provider." }, { status: 400 });
 
-  const { error } = await supabase.from("integration_credentials").delete().eq("owner_id", user.id).eq("provider", provider);
-  if (error) return NextResponse.json({ error: "Could not remove the saved credential." }, { status: 503 });
+  const { error } = await supabase.rpc("delete_integration_credential", { p_provider: provider });
+  if (error) return NextResponse.json({ error: "Could not remove the saved credential. Apply Supabase migration 0003 if it has not been run." }, { status: 503 });
   const { error: statusError } = await supabase.from("integration_connections").delete().eq("owner_id", user.id).eq("provider", provider);
   if (statusError) return NextResponse.json({ error: "Credential removed, but connection status could not be cleared." }, { status: 503 });
   return NextResponse.json({ success: true });
