@@ -53,19 +53,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 503 });
   }
 
-  // The credential table intentionally has no SELECT grant. Replace by deleting
-  // the account-owned row and inserting its newly encrypted value instead of upserting.
-  const { error: removeOldError } = await supabase.from("integration_credentials")
-    .delete().eq("owner_id", user.id).eq("provider", input.provider);
-  if (removeOldError) return NextResponse.json({ error: "Could not prepare secure credential storage. Apply Supabase migration 0002 and try again." }, { status: 503 });
-
-  const { error: saveError } = await supabase.from("integration_credentials").insert({
-    owner_id: user.id,
-    provider: input.provider,
-    ...encrypted,
-    updated_at: new Date().toISOString(),
+  // The database function validates auth.uid() and atomically writes ciphertext.
+  // The browser-facing role has no SELECT grant on the encrypted credential table.
+  const { error: saveError } = await supabase.rpc("save_integration_credential", {
+    p_provider: input.provider,
+    p_ciphertext: encrypted.ciphertext,
+    p_iv: encrypted.iv,
+    p_auth_tag: encrypted.auth_tag,
+    p_key_version: encrypted.key_version,
   });
-  if (saveError) return NextResponse.json({ error: "Could not store this credential. Apply Supabase migration 0002 and try again." }, { status: 503 });
+  if (saveError) return NextResponse.json({ error: "Could not store this credential. Apply the latest Supabase migration 0002 and try again." }, { status: 503 });
 
   const { error: statusError } = await supabase.from("integration_connections").upsert({
     owner_id: user.id,
