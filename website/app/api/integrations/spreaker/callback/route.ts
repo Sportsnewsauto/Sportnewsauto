@@ -24,8 +24,11 @@ export async function GET(request: NextRequest) {
 
   const query = request.nextUrl.searchParams;
   const state = query.get("state") ?? "";
-  const expectedState = request.cookies.get("spreaker_oauth_state")?.value ?? "";
-  if (!state || !expectedState || state !== expectedState) return finish(request, "state-check-failed");
+  const stateCookie = request.cookies.get("spreaker_oauth_state")?.value ?? "";
+  const [stateUserId, expectedState] = stateCookie.split(".", 2);
+  if (!state || !expectedState || state !== expectedState || stateUserId !== user.id) {
+    return finish(request, "state-check-failed");
+  }
   if (query.get("error")) return finish(request, "authorization-cancelled");
 
   const code = query.get("code");
