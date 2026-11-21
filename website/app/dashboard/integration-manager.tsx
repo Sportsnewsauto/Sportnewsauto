@@ -38,7 +38,8 @@ export default function IntegrationManager() {
       if (spreaker?.status === "connected") {
         const showResponse = await fetch("/api/integrations?resource=spreaker-shows", { cache: "no-store" });
         const showData = await showResponse.json();
-        if (showResponse.ok) setShows(showData.shows ?? []);
+        if (!showResponse.ok) throw new Error(showData.error || "Could not retrieve your editable Spreaker shows.");
+        setShows(showData.shows ?? []);
         const { data: settings } = await supabase.from("workspace_settings").select("spreaker_show_id").maybeSingle();
         setSelectedShow(settings?.spreaker_show_id ?? "");
       } else {
