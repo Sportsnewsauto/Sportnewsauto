@@ -53,8 +53,10 @@ export async function GET(request: NextRequest) {
       const visited = new Set<string>();
       let nextUrl: string | null =
         `https://api.spreaker.com/v2/users/${encodeURIComponent(String(userId))}/shows?filter=editable&limit=100`;
-      for (let page = 0; page < 20 && nextUrl; page += 1) {
-        const pageUrl = new URL(nextUrl as string);
+      for (let page = 0; page < 20; page += 1) {
+        const currentPageUrl: string | null = nextUrl;
+        if (!currentPageUrl) break;
+        const pageUrl: URL = new URL(currentPageUrl);
         if (pageUrl.origin !== "https://api.spreaker.com" || visited.has(pageUrl.toString())) {
           return NextResponse.json({ error: "Spreaker returned an invalid show-list page link." }, { status: 502 });
         }
@@ -141,8 +143,10 @@ export async function POST(request: NextRequest) {
       let nextUrl: string | null =
         `https://api.spreaker.com/v2/users/${encodeURIComponent(String(userId))}/shows?filter=editable&limit=100`;
       let matchedShow: { show_id: string; title: string } | null = null;
-      for (let page = 0; page < 20 && nextUrl; page += 1) {
-        const pageUrl = new URL(nextUrl as string);
+      for (let page = 0; page < 20; page += 1) {
+        const currentPageUrl: string | null = nextUrl;
+        if (!currentPageUrl) break;
+        const pageUrl: URL = new URL(currentPageUrl);
         if (pageUrl.origin !== "https://api.spreaker.com" || visited.has(pageUrl.toString())) {
           return NextResponse.json({ error: "Spreaker returned an invalid show-list page link." }, { status: 502 });
         }
