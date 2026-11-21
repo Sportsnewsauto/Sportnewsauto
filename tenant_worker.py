@@ -405,7 +405,25 @@ def run_pipeline(
         (workdir / "config.json").write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
         (workdir / "covered_stories.json").write_text(json.dumps(history, ensure_ascii=False), encoding="utf-8")
 
+        # Provider credentials are injected below from this workspace's own
+        # encrypted records. Do not let platform-level API credentials or
+        # infrastructure secrets leak into the episode-generation subprocess.
         env = os.environ.copy()
+        for name in (
+            "SUPABASE_URL",
+            "SUPABASE_SECRET_KEY",
+            "SUPABASE_SERVICE_ROLE_KEY",
+            "CREDENTIAL_ENCRYPTION_KEY",
+            "NEXT_PUBLIC_SUPABASE_URL",
+            "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+            "SPREAKER_CLIENT_ID",
+            "SPREAKER_CLIENT_SECRET",
+            "SPREAKER_ACCESS_TOKEN",
+            "SPREAKER_SHOW_ID",
+            "GROQ_API_KEY",
+            "GEMINI_API_KEY",
+        ):
+            env.pop(name, None)
         env.update({
             "GROQ_API_KEY": groq_for_run,
             "GEMINI_API_KEY": gemini_key,
