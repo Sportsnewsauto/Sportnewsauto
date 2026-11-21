@@ -195,3 +195,24 @@ $$;
 
 revoke all on function public.save_integration_credential(text, text, text, text, text) from public;
 grant execute on function public.save_integration_credential(text, text, text, text, text) to authenticated;
+
+
+create or replace function public.get_integration_credential(p_provider text)
+returns table(ciphertext text, iv text, auth_tag text, key_version text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required';
+  end if;
+  return query
+    select c.ciphertext, c.iv, c.auth_tag, c.key_version
+    from public.integration_credentials as c
+    where c.owner_id = auth.uid() and c.provider = p_provider;
+end;
+$$;
+
+revoke all on function public.get_integration_credential(text) from public;
+grant execute on function public.get_integration_credential(text) to authenticated;
