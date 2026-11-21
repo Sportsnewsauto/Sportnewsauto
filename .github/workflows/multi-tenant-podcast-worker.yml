@@ -23,18 +23,39 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Validate worker syntax
+        run: python -m py_compile tenant_worker.py upload_spreaker.py
+
+      - name: Check required worker secrets
+        id: prerequisites
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CREDENTIAL_ENCRYPTION_KEY: ${{ secrets.CREDENTIAL_ENCRYPTION_KEY }}
+          SPREAKER_CLIENT_ID: ${{ secrets.SPREAKER_CLIENT_ID }}
+          SPREAKER_CLIENT_SECRET: ${{ secrets.SPREAKER_CLIENT_SECRET }}
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] || [ -z "$CREDENTIAL_ENCRYPTION_KEY" ] || [ -z "$SPREAKER_CLIENT_ID" ] || [ -z "$SPREAKER_CLIENT_SECRET" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Worker is safely inactive. Add the required GitHub Actions secrets to enable multi-workspace processing."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Python
+        if: steps.prerequisites.outputs.enabled == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install podcast dependencies
+        if: steps.prerequisites.outputs.enabled == 'true'
         run: |
           python -m pip install --upgrade pip
           python -m pip install --no-cache-dir -r requirements.txt
           python -m pip install --no-cache-dir cryptography requests
 
       - name: Run account-specific podcast jobs
+        if: steps.prerequisites.outputs.enabled == 'true'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
