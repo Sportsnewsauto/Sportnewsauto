@@ -108,6 +108,87 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Choose a valid provider." }, { status: 400 });
   }
 
+  if (input.provider === "spreaker" && input.action === "save-show") {
+    const showId = typeof input.showId === "string" ? input.showId.trim() : "";
+    if (!/^\\d{1,20}$/.test(showId)) {
+      return NextResponse.json({ error: "Enter a valid numeric Spreaker Show ID." }, { status: 400 });
+    }
+
+    let token: string;
+    try { token = await getUsableSpreakerAccessToken(supabase); }
+    catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Could not read the connected Spreaker account.";
+      return NextResponse.json({ error: message }, { status: 422 });
+    }
+
+    const headers = { Authorization: `Bearer ${token}` };
+    try {
+      const meResponse = await fetch("https://api.spreaker.com/v2/me", {
+        headers, cache: "no-store", signal: AbortSignal.timeout(8000),
+      });
+      if (!meResponse.ok) {
+        return NextResponse.json({ error: "Spreaker rejected the connected account. Reconnect Spreaker and try again." }, { status: 422 });
+      }
+      const mePayload = await meResponse.json();
+      const userId = mePayload?.response?.user?.user_id;
+      if (!userId || !/^\\d+$/.test(String(userId))) {
+        return NextResponse.json({ error: "Spreaker did not return a valid account ID." }, { status: 502 });
+      }
+
+      // Confirm the typed ID is one of this authenticated account's editable
+      // shows before saving it as the destination for automatic publishing.
+      const visited = new Set<string>();
+      let nextUrl: string | null =
+        `https://api.spreaker.com/v2/users/${encodeURIComponent(String(userId))}/shows?filter=editable&limit=100`;
+      let matchedShow: { show_id: string; title: string } | null = null;
+      for (let page = 0; page < 20 && nextUrl; page += 1) {
+        const pageUrl = new URL(nextUrl);
+        if (pageUrl.origin !== "https://api.spreaker.com" || visited.has(pageUrl.toString())) {
+          return NextResponse.json({ error: "Spreaker returned an invalid show-list page link." }, { status: 502 });
+        }
+        visited.add(pageUrl.toString());
+        const showsResponse = await fetch(pageUrl, {
+          headers, cache: "no-store", signal: AbortSignal.timeout(8000),
+        });
+        if (!showsResponse.ok) {
+          return NextResponse.json({ error: "Could not verify the Show ID against your Spreaker account." }, { status: 502 });
+        }
+        const showsPayload = await showsResponse.json();
+        const items = Array.isArray(showsPayload?.response?.items) ? showsPayload.response.items : [];
+        const match = items.find((item: any) => String(item?.show_id ?? "") === showId);
+        if (match) {
+          matchedShow = { show_id: showId, title: typeof match.title === "string" ? match.title : "Your Spreaker show" };
+          break;
+        }
+        const candidate = showsPayload?.response?.next_url;
+        nextUrl = typeof candidate === "string" && candidate ? candidate : null;
+      }
+
+      if (!matchedShow) {
+        return NextResponse.json({
+          error: "That Show ID was not found in your Spreaker account's editable shows. Check the number or connect the Spreaker account that owns or can edit this show.",
+        }, { status: 422 });
+      }
+
+      const { error: settingsError } = await supabase.from("workspace_settings").upsert({
+        owner_id: user.id,
+        spreaker_show_id: showId,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "owner_id" });
+      if (settingsError) {
+        return NextResponse.json({ error: "The Show ID was verified, but could not be saved to this workspace." }, { status: 503 });
+      }
+      return NextResponse.json({
+        success: true,
+        show_id: matchedShow.show_id,
+        show_title: matchedShow.title,
+        message: `Spreaker show “${matchedShow.title}” (ID ${showId}) verified and saved.`,
+      }, { headers: { "Cache-Control": "no-store" } });
+    } catch {
+      return NextResponse.json({ error: "Could not reach Spreaker to verify this Show ID. Try again." }, { status: 502 });
+    }
+  }
+
   if (input.provider === "spreaker" && input.action === "save-app") {
     const clientId = typeof input.clientId === "string" ? input.clientId.trim() : "";
     const clientSecret = typeof input.clientSecret === "string" ? input.clientSecret.trim() : "";
