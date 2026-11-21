@@ -26,7 +26,8 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 ROOT = Path(__file__).resolve().parent
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
-SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+# Prefer the legacy service_role JWT when explicitly configured; otherwise use the new sb_secret_* key.
+SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_SECRET_KEY")
 if not SUPABASE_SECRET_KEY:
     raise RuntimeError("Add SUPABASE_SECRET_KEY to GitHub Actions secrets.")
 CREDENTIAL_ENCRYPTION_KEY = base64.b64decode(os.environ["CREDENTIAL_ENCRYPTION_KEY"])
