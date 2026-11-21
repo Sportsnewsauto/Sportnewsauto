@@ -24,7 +24,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
     try {
       const supabase = createClient();
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
         if (error) throw error;
         if (!data.session) {
           setMessage("Account created. Check your email for the confirmation link, then sign in.");
