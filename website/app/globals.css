@@ -181,3 +181,7 @@ h1{font-size:clamp(42px,5.4vw,64px);line-height:1.06;margin:20px 0}
 }
 
 .integration-card select{width:100%;padding:12px 13px;border:1px solid #dce3ed;border-radius:10px;font:inherit;font-size:14px;background:#fff;color:var(--ink)}
+
+.auth-forgot{justify-self:end;border:0;background:transparent;color:var(--blue);font-size:12px;font-weight:700;padding:3px 0;cursor:pointer}
+.auth-forgot:hover{text-decoration:underline}
+.auth-forgot:disabled{opacity:.6;cursor:wait}
