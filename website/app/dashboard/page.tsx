@@ -16,8 +16,8 @@ export default async function Dashboard() {
     <section className="dash-main">
       <div className="dash-top"><div><h1>Dashboard overview</h1><p>Welcome, {user.email}. Your private workspace is ready.</p></div><span className="status">● Signed in</span></div>
       <div className="dash-cards">
-        <div className="dash-card"><span>Episodes published today</span><strong>0 / {workspace?.daily_episode_limit ?? 1}</strong><small>Free plan daily allowance</small></div>
-        <div className="dash-card"><span>Account plan</span><strong>{workspace?.plan ?? "Free"}</strong><small>Monthly subscription options coming later</small></div>
+        <div className="dash-card"><span>Episodes published today</span><strong>0 / {workspace?.daily_episode_limit ?? 1}</strong><small>{workspace?.plan === "admin" ? "Admin daily allowance" : "Free plan daily allowance"}</small></div>
+        <div className="dash-card"><span>Account plan</span><strong>{workspace?.plan ? workspace.plan.charAt(0).toUpperCase() + workspace.plan.slice(1) : "Free"}</strong><small>{workspace?.plan === "admin" ? "Platform Admin workspace" : "Monthly subscription options coming later"}</small></div>
         <div className="dash-card"><span>Automation</span><strong>{automationLabel}</strong><small>{settings?.automation_enabled ? "Scheduled worker enabled" : "Enable it when account connections are ready"}</small></div>
       </div>
       <LegacyAutomationImport />
