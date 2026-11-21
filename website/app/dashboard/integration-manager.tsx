@@ -165,7 +165,7 @@ export default function IntegrationManager() {
     <div className="integration-security"><strong>Encrypted credential storage</strong><p>Credentials are encrypted on the server with AES-256-GCM. The secret value is never returned to the browser. Saved credentials can be tested against each provider; the secret itself is never returned to the browser.</p></div>
     <div className="integration-security">
       <strong>Your own Spreaker Developer App</strong>
-      <p>Every customer uses their own Spreaker Client ID and Client Secret. These are encrypted and saved only to this signed-in account. In your Spreaker Developer App, register this callback URL: https://sportnewsauto.vercel.app/api/integrations/spreaker/callback</p>
+      <p>Every customer uses their own Spreaker Client ID and Client Secret. These are encrypted and saved only to this signed-in account. After you click “Authorize my Spreaker account” and approve access on Spreaker, this website automatically receives and securely stores your access token and refresh token. Do not paste an access token here. In your Spreaker Developer App, register this callback URL: https://sportnewsauto.vercel.app/api/integrations/spreaker/callback</p>
       <label>Spreaker Client ID<input type="text" autoComplete="off" value={spreakerClientId} onChange={e => setSpreakerClientId(e.target.value)} placeholder="Enter your Spreaker Client ID" /></label>
       <label>Spreaker Client Secret<input type="password" autoComplete="new-password" value={spreakerClientSecret} onChange={e => setSpreakerClientSecret(e.target.value)} placeholder="Enter your Spreaker Client Secret" /></label>
       <div className="integration-actions">
@@ -173,7 +173,7 @@ export default function IntegrationManager() {
         <a className="btn btn-outline" href="/api/integrations/spreaker/connect">Authorize my Spreaker account</a>
         {connectionFor("spreaker") && <button className="btn btn-outline" disabled={busy !== null} onClick={() => void remove("spreaker")}>Remove Spreaker connection</button>}
       </div>
-      {connectionFor("spreaker") && <p className="integration-saved">Spreaker setup: <strong>{connectionFor("spreaker")?.status === "connected" ? "Account connected" : "App credentials saved"}</strong></p>}
+      {connectionFor("spreaker") && <p className="integration-saved">Spreaker setup: <strong>{connectionFor("spreaker")?.status === "connected" ? "Account connected" : "App credentials saved"}</strong>{connectionFor("spreaker")?.status === "connected" && <> · Access token stored securely (•••• {connectionFor("spreaker")?.masked_suffix})</>}</p>}
     </div>
     {(["groq", "gemini"] as const).map(provider => {
       const info = providerInfo[provider];
@@ -192,12 +192,13 @@ export default function IntegrationManager() {
       </div>;
     })}
     {connectionFor("spreaker")?.status === "connected" && <div className="integration-card spreaker-show-picker">
-      <div><h2>Choose your Spreaker show</h2><p>Select the show where this workspace will publish. The list comes from the authenticated Spreaker account.</p></div>
+      <div><h2>Choose your Spreaker show</h2><p>Select the show where this workspace will publish. The website retrieves your editable shows from the connected Spreaker account and saves the chosen Show ID automatically. You do not need to type the ID manually.</p></div>
       {shows.length === 0 ? <p className="microcopy">No editable shows were returned for this Spreaker account.</p> : <>
         <label>Spreaker show<select value={selectedShow} onChange={e => setSelectedShow(e.target.value)}>
           <option value="">Choose a show…</option>
           {shows.map(show => <option key={show.show_id} value={show.show_id}>{show.title} (ID {show.show_id})</option>)}
         </select></label>
+        <p className="integration-saved">Selected Spreaker Show ID: <strong>{selectedShow || "Not selected"}</strong></p>
         <button className="btn btn-primary" disabled={showBusy || !selectedShow} onClick={() => void saveShowSelection()}>{showBusy ? "Saving…" : "Save selected show"}</button>
       </>}
     </div>}
