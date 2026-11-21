@@ -207,6 +207,13 @@ def main():
     prompt = f"""
 You create accurate, engaging YouTube metadata for news podcasts.
 
+PODCAST IDENTITY
+Podcast name: {os.getenv("PODCAST_NAME", "Sports News Podcast")}
+Podcast description: {os.getenv("PODCAST_DESCRIPTION", "Independent sports news and analysis.")}
+Category: {os.getenv("PODCAST_CATEGORY", "Sports")}
+Language: {os.getenv("PODCAST_LANGUAGE", "en")}
+Country focus: {os.getenv("PODCAST_COUNTRY", "KE")}
+
 STORY HEADLINE
 {story.get("title", "News podcast episode")}
 
