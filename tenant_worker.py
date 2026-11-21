@@ -45,11 +45,15 @@ class SupabaseRest:
     def __init__(self) -> None:
         self.base = f"{SUPABASE_URL}/rest/v1"
         self.session = requests.Session()
+        # Supabase's new sb_secret_* keys are opaque API keys, not JWTs.
+        # Send them only as apikey. Legacy service_role keys are JWTs and
+        # must also be sent as the Bearer token to select the service_role.
         self.session.headers.update({
             "apikey": SUPABASE_SECRET_KEY,
-            "Authorization": f"Bearer {SUPABASE_SECRET_KEY}",
             "Content-Type": "application/json",
         })
+        if not SUPABASE_SECRET_KEY.startswith("sb_secret_"):
+            self.session.headers["Authorization"] = f"Bearer {SUPABASE_SECRET_KEY}"
 
     def request(self, method: str, table: str, *, params=None, body=None, prefer=None):
         headers = {}
