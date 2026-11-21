@@ -56,12 +56,11 @@ export async function GET(request: NextRequest) {
       for (let page = 0; page < 20; page += 1) {
         const currentPageUrl: string | null = nextUrl;
         if (!currentPageUrl) break;
-        const pageUrl: URL = new URL(currentPageUrl);
-        if (pageUrl.origin !== "https://api.spreaker.com" || visited.has(pageUrl.toString())) {
+        if (!currentPageUrl.startsWith("https://api.spreaker.com/") || visited.has(currentPageUrl)) {
           return NextResponse.json({ error: "Spreaker returned an invalid show-list page link." }, { status: 502 });
         }
-        visited.add(pageUrl.toString());
-        const showsResponse = await fetch(pageUrl, {
+        visited.add(currentPageUrl);
+        const showsResponse = await fetch(currentPageUrl, {
           headers, cache: "no-store", signal: AbortSignal.timeout(8000),
         });
         if (!showsResponse.ok) {
@@ -146,12 +145,11 @@ export async function POST(request: NextRequest) {
       for (let page = 0; page < 20; page += 1) {
         const currentPageUrl: string | null = nextUrl;
         if (!currentPageUrl) break;
-        const pageUrl: URL = new URL(currentPageUrl);
-        if (pageUrl.origin !== "https://api.spreaker.com" || visited.has(pageUrl.toString())) {
+        if (!currentPageUrl.startsWith("https://api.spreaker.com/") || visited.has(currentPageUrl)) {
           return NextResponse.json({ error: "Spreaker returned an invalid show-list page link." }, { status: 502 });
         }
-        visited.add(pageUrl.toString());
-        const showsResponse = await fetch(pageUrl, {
+        visited.add(currentPageUrl);
+        const showsResponse = await fetch(currentPageUrl, {
           headers, cache: "no-store", signal: AbortSignal.timeout(8000),
         });
         if (!showsResponse.ok) {
