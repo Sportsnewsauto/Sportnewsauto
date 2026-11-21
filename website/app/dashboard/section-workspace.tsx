@@ -12,6 +12,7 @@ type WorkspaceSettings = {
   category: string;
   language: string;
   country: string;
+  spreaker_show_id: string;
   timezone: string;
   ai_provider: "groq" | "gemini";
   ai_model: string;
@@ -28,6 +29,7 @@ const defaultSettings: WorkspaceSettings = {
   category: "Sports",
   language: "en",
   country: "KE",
+  spreaker_show_id: "",
   timezone: "Africa/Nairobi",
   ai_provider: "groq",
   ai_model: "openai/gpt-oss-120b",
