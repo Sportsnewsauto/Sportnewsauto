@@ -28,8 +28,9 @@ The public Supabase publishable key is safe to expose in the browser when Row Le
 2. Set the project URL and publishable key in the environment variables.
 3. In Supabase SQL Editor, run `supabase/migrations/0001_accounts_and_workspaces.sql`.
 4. Then run `supabase/migrations/0002_workspace_configuration_and_jobs.sql`.
-5. In Supabase Authentication → URL Configuration, set the Site URL to the deployed website and add the deployed `/auth/callback` URL as an allowed redirect.
-6. Deploy the website.
+5. Run `supabase/migrations/0003_credential_security_and_job_idempotency.sql`.
+6. In Supabase Authentication → URL Configuration, set the Site URL to the deployed website and add the deployed `/auth/callback` URL as an allowed redirect.
+7. Deploy the website.
 
 The second migration adds per-user workspace settings, RSS feed records, advertising cue-point settings, episode and publishing-job records, integration status, encrypted provider credential storage, and owner-checked credential RPC functions.
 
