@@ -37,16 +37,14 @@ export async function GET(request: NextRequest) {
     || new URL("/api/integrations/spreaker/callback", request.url).toString();
 
   try {
-    const body = new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: clientId,
-      client_secret: clientSecret,
-      redirect_uri: redirectUri,
-      code,
-    });
+    const body = new FormData();
+    body.set("grant_type", "authorization_code");
+    body.set("client_id", clientId);
+    body.set("client_secret", clientSecret);
+    body.set("redirect_uri", redirectUri);
+    body.set("code", code);
     const tokenResponse = await fetch("https://api.spreaker.com/oauth2/token", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
       cache: "no-store",
       signal: AbortSignal.timeout(15000),
