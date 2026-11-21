@@ -20,6 +20,14 @@ Set these in Vercel (and in `website/.env.local` for local development):
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `CREDENTIAL_ENCRYPTION_KEY` — server-only, base64-encoded 32-byte key used by the AES-256-GCM credential vault. Never prefix it with `NEXT_PUBLIC_`, commit it, or add it to browser code.\n- `SPREAKER_CLIENT_ID` — OAuth application Client ID from Spreaker Developers.\n- `SPREAKER_CLIENT_SECRET` — OAuth application Client Secret from Spreaker Developers. Server-only; never add it to browser code.\n- `SPREAKER_REDIRECT_URI` — exact callback URL registered in Spreaker Developers: `https://sportnewsauto.vercel.app/api/integrations/spreaker/callback`.
 
+Also add the following GitHub Actions repository secrets before the multi-workspace worker can run:
+
+- `SUPABASE_SERVICE_ROLE_KEY` — Supabase service-role key; GitHub Actions only, never Vercel client variables.
+- `CREDENTIAL_ENCRYPTION_KEY` — the exact same base64 value as Vercel, so the worker can decrypt the credentials stored by the website.
+- `SPREAKER_CLIENT_ID` and `SPREAKER_CLIENT_SECRET` — the same Spreaker OAuth app credentials stored in Vercel.
+
+The worker reads the existing `NEXT_PUBLIC_SUPABASE_URL` GitHub secret as `SUPABASE_URL`.
+
 The public Supabase publishable key is safe to expose in the browser when Row Level Security is correctly enabled. Never use a Supabase service-role key in the website.
 
 ## Supabase setup
@@ -42,7 +50,8 @@ The second migration adds per-user workspace settings, RSS feed records, adverti
 - Podcast profile, AI provider/model, writing instruction, Kokoro voice, publishing mode, timezone and schedule preferences.
 - Per-account RSS feed management with starter sources based on the existing repository feed configuration.
 - Per-account advertising cue-point positions, including 30, 60, 120 and 180 seconds as starter slots.
-- Server-side AES-256-GCM encryption for Spreaker, Groq and Gemini credentials.\n- Spreaker server-side OAuth authorization-code flow with CSRF state validation, encrypted access/refresh token storage, and automatic access-token refresh.
+- Server-side AES-256-GCM encryption for Spreaker, Groq and Gemini credentials; browser access to encrypted credential rows is locked down by migration 0003.\n- Spreaker server-side OAuth authorization-code flow with CSRF state validation, encrypted access/refresh token storage, and automatic access-token refresh.
+- A separate multi-workspace GitHub Actions worker that reads each workspace's feeds, AI credentials, show, schedule and ad slots, respects the daily plan allowance, supports automatic publishing or review drafts, and accepts manual publish jobs from the Episodes screen. Scheduled generation is opt-in per workspace.
 - Provider credential verification endpoints for Spreaker `GET /v2/me`, Groq model listing and Gemini model listing.
 - Episode list and subscription status screens.
 
