@@ -185,3 +185,9 @@ h1{font-size:clamp(42px,5.4vw,64px);line-height:1.06;margin:20px 0}
 .auth-forgot{justify-self:end;border:0;background:transparent;color:var(--blue);font-size:12px;font-weight:700;padding:3px 0;cursor:pointer}
 .auth-forgot:hover{text-decoration:underline}
 .auth-forgot:disabled{opacity:.6;cursor:wait}
+
+.automation-toggle{display:flex!important;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;border:1px solid #dce8ff;border-radius:12px;background:#f7faff}
+.automation-toggle span{display:grid;gap:4px}
+.automation-toggle strong{font-size:13px}
+.automation-toggle small{font-size:12px;line-height:1.5;color:var(--muted);font-weight:400}
+.automation-toggle input{width:18px!important;height:18px;flex:0 0 auto}
