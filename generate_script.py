@@ -136,13 +136,16 @@ def generate_content_with_retry(client, prompt):
                 print(f"Groq generation succeeded using {groq_model}.", flush=True)
                 return SimpleNamespace(text=content)
             except Exception as exc:
-                if is_permanent_api_error(exc):
+                if is_permanent_api_error(exc) or not is_retryable_api_error(exc):
+                    if client is not None:
+                        print(
+                            f"Groq could not complete this request ({type(exc).__name__}). "
+                            "Falling back to Gemini.",
+                            flush=True,
+                        )
+                        break
                     raise RuntimeError(
-                        f"Permanent Groq error; stopping retries: {exc}"
-                    ) from exc
-                if not is_retryable_api_error(exc) and not isinstance(exc, RuntimeError):
-                    raise RuntimeError(
-                        f"Non-retryable Groq error; stopping retries: {exc}"
+                        f"Groq could not complete this request and Gemini is not configured: {exc}"
                     ) from exc
 
                 attempt += 1
@@ -253,6 +256,19 @@ You are an independent professional daily-news podcast writer and analyst.
 Write original spoken journalism about the real-world news development
 identified below. The finished narration must stand on its own. It must not
 read like a rewritten, condensed, or lightly reworded article.
+
+PODCAST IDENTITY AND WORKSPACE STYLE
+Podcast name: {os.getenv("PODCAST_NAME", "Sports News Podcast")}
+Podcast description: {os.getenv("PODCAST_DESCRIPTION", "Independent sports news and analysis.")}
+Category: {os.getenv("PODCAST_CATEGORY", "Sports")}
+Requested language: {os.getenv("PODCAST_LANGUAGE", "en")}
+Country focus: {os.getenv("PODCAST_COUNTRY", "KE")}
+Additional owner writing instructions:
+{os.getenv("AI_WRITING_INSTRUCTIONS", "").strip() or "No additional owner instructions."}
+
+Treat these instructions as preferences for focus and tone. They never override
+the requirements for verified facts, original wording, balanced coverage,
+or clear narration.
 
 NEWS STORY — FACTUAL IDENTIFICATION ONLY
 Story headline/topic: {headline}
