@@ -49,6 +49,24 @@ export default function IntegrationManager() {
     } finally { setBusy(null); }
   }
 
+  async function verify(provider: Provider) {
+    setBusy(provider); setError(""); setNotice("");
+    try {
+      const response = await fetch("/api/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, action: "verify" }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Provider verification failed.");
+      setNotice(data.message || "Provider connection verified.");
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Provider verification failed.");
+      await load();
+    } finally { setBusy(null); }
+  }
+
   async function remove(provider: Provider) {
     if (!window.confirm(`Remove the saved ${providerInfo[provider].title} credential?`)) return;
     setBusy(provider); setError(""); setNotice("");
@@ -71,13 +89,14 @@ export default function IntegrationManager() {
       const info = providerInfo[provider];
       const saved = connectionFor(provider);
       return <div className="integration-card" key={provider}>
-        <div className="integration-heading"><div><h2>{info.title}</h2><p>{info.description}</p></div><span className={saved ? "pill" : "status-muted"}>{saved ? "Saved · unverified" : "Not connected"}</span></div>
+        <div className="integration-heading"><div><h2>{info.title}</h2><p>{info.description}</p></div><span className={saved?.status === "connected" ? "status" : saved?.status === "invalid" ? "auth-error" : saved ? "pill" : "status-muted"}>{saved?.status === "connected" ? "Verified" : saved?.status === "invalid" ? "Needs attention" : saved ? "Saved · unverified" : "Not connected"}</span></div>
         {saved && <p className="integration-saved">Saved credential ending in <strong>•••• {saved.masked_suffix}</strong></p>}
         <label>{saved ? "Replace credential" : "Credential"}
           <input type="password" autoComplete="off" value={secrets[provider]} onChange={e => setSecrets(current => ({ ...current, [provider]: e.target.value }))} placeholder={info.placeholder} />
         </label>
         <div className="integration-actions">
           <button className="btn btn-primary" disabled={busy !== null || !secrets[provider].trim()} onClick={() => void save(provider)}>{busy === provider ? "Saving…" : saved ? "Replace securely" : "Save securely"}</button>
+          {saved && <button className="btn btn-outline" disabled={busy !== null} onClick={() => void verify(provider)}>{busy === provider ? "Checking…" : "Verify connection"}</button>}
           {saved && <button className="btn btn-outline" disabled={busy !== null} onClick={() => void remove(provider)}>Remove</button>}
         </div>
       </div>;
