@@ -160,6 +160,8 @@ function EpisodesList() {
   const [episodes, setEpisodes] = useState<Array<{ id: string; title: string; status: string; created_at: string; published_at: string | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [publishingId, setPublishingId] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     void supabase.from("episodes").select("id,title,status,created_at,published_at").order("created_at", { ascending: false }).limit(50)
@@ -171,12 +173,42 @@ function EpisodesList() {
       });
     return () => { active = false; };
   }, [supabase]);
+
+  async function publishNow(episodeId: string) {
+    setPublishingId(episodeId);
+    setError("");
+    setNotice("");
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      setError("Please sign in again.");
+      setPublishingId(null);
+      return;
+    }
+    const { error: queueError } = await supabase.from("publishing_jobs").insert({
+      owner_id: user.id,
+      job_type: "publish_episode",
+      status: "queued",
+      scheduled_at: new Date().toISOString(),
+      payload: { episode_id: episodeId },
+    });
+    if (queueError) {
+      setError("Could not queue this episode for publishing. Make sure Supabase migration 0003 is applied.");
+      setPublishingId(null);
+      return;
+    }
+    await supabase.from("episodes").update({ status: "queued", updated_at: new Date().toISOString() }).eq("id", episodeId);
+    setEpisodes(current => current.map(item => item.id === episodeId ? { ...item, status: "queued" } : item));
+    setNotice("Episode queued. The podcast worker will publish it to Spreaker.");
+    setPublishingId(null);
+  }
+
   return <section className="dash-main">
     <div className="dash-top"><div><p className="section-kicker">WORKSPACE</p><h1>Episodes</h1><p>Generated and published episodes for this account.</p></div><span className="pill">Free plan: 1 per day</span></div>
     <div className="panel">
       {error && <Notice error>{error}</Notice>}
+      {notice && <Notice>{notice}</Notice>}
       {loading ? <p>Loading episodes…</p> : episodes.length === 0 ? <><h2>No episodes yet</h2><p>Episode generation is not connected to the website worker yet. When the worker is connected, your drafts and published episodes will appear here.</p></> :
-        <div className="table-scroll"><table className="data-table"><thead><tr><th>Episode</th><th>Status</th><th>Created</th><th>Published</th></tr></thead><tbody>{episodes.map(e => <tr key={e.id}><td>{e.title}</td><td><span className="pill">{e.status}</span></td><td>{new Date(e.created_at).toLocaleString()}</td><td>{e.published_at ? new Date(e.published_at).toLocaleString() : "—"}</td></tr>)}</tbody></table></div>}
+        <div className="table-scroll"><table className="data-table"><thead><tr><th>Episode</th><th>Status</th><th>Created</th><th>Published</th><th>Action</th></tr></thead><tbody>{episodes.map(e => <tr key={e.id}><td>{e.title}</td><td><span className="pill">{e.status}</span></td><td>{new Date(e.created_at).toLocaleString()}</td><td>{e.published_at ? new Date(e.published_at).toLocaleString() : "—"}</td><td>{e.status === "draft" ? <button className="btn btn-primary btn-small" disabled={publishingId !== null} onClick={() => void publishNow(e.id)}>{publishingId === e.id ? "Queuing…" : "Publish now"}</button> : e.status === "queued" ? "Waiting for worker" : "—"}</td></tr>)}</tbody></table></div>}
     </div>
   </section>;
 }
