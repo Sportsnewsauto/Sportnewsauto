@@ -30,8 +30,6 @@ SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY") or os.getenv("SUPABASE_SE
 if not SUPABASE_SECRET_KEY:
     raise RuntimeError("Add SUPABASE_SECRET_KEY to GitHub Actions secrets.")
 CREDENTIAL_ENCRYPTION_KEY = base64.b64decode(os.environ["CREDENTIAL_ENCRYPTION_KEY"])
-SPREAKER_CLIENT_ID = os.getenv("SPREAKER_CLIENT_ID", "")
-SPREAKER_CLIENT_SECRET = os.getenv("SPREAKER_CLIENT_SECRET", "")
 WORKFLOW_WINDOW_HOURS = 3.5
 SCRIPT_FILES = [
     "fetch_news.py",
@@ -167,13 +165,15 @@ def usable_spreaker_token(db: SupabaseRest, owner_id: str, raw: str) -> tuple[st
         return access_token, bundle
 
     refresh_token = bundle.get("refresh_token")
-    if not refresh_token or not SPREAKER_CLIENT_ID or not SPREAKER_CLIENT_SECRET:
+    client_id = bundle.get("client_id")
+    client_secret = bundle.get("client_secret")
+    if not refresh_token or not client_id or not client_secret:
         raise RuntimeError("The Spreaker token expired; reconnect this workspace's Spreaker account.")
 
     fields = {
         "grant_type": "refresh_token",
-        "client_id": SPREAKER_CLIENT_ID,
-        "client_secret": SPREAKER_CLIENT_SECRET,
+        "client_id": client_id,
+        "client_secret": client_secret,
         "refresh_token": refresh_token,
     }
     response = requests.post(
@@ -188,6 +188,8 @@ def usable_spreaker_token(db: SupabaseRest, owner_id: str, raw: str) -> tuple[st
 
     expires_in = int(tokens.get("expires_in") or 0)
     bundle = {
+        "client_id": client_id,
+        "client_secret": client_secret,
         "access_token": tokens["access_token"],
         "refresh_token": tokens.get("refresh_token") or refresh_token,
         "token_type": tokens.get("token_type") or "Bearer",
