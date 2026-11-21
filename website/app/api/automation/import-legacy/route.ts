@@ -47,7 +47,10 @@ export async function POST(request: Request) {
   const adminEmail = process.env.AUTOMATION_ADMIN_EMAIL?.trim().toLowerCase();
   const secretKey = process.env.SUPABASE_SECRET_KEY?.trim();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  if (!adminEmail || user.email?.toLowerCase() !== adminEmail) {
+  if (!adminEmail) {
+    return NextResponse.json({ error: "Admin setup is incomplete. Add AUTOMATION_ADMIN_EMAIL to Vercel using the email for your Admin login." }, { status: 503 });
+  }
+  if (user.email?.toLowerCase() !== adminEmail) {
     return NextResponse.json({ error: "This import is restricted to the configured Admin account. Sign in with the Admin email." }, { status: 403 });
   }
   if (!secretKey || !supabaseUrl) {
