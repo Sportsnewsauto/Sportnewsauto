@@ -181,7 +181,7 @@ export default function IntegrationManager() {
       return <div className="integration-card" key={provider}>
         <div className="integration-heading"><div><h2>{info.title}</h2><p>{info.description}</p></div><span className={saved?.status === "connected" ? "status" : saved?.status === "invalid" ? "auth-error" : saved ? "pill" : "status-muted"}>{saved?.status === "connected" ? "Verified" : saved?.status === "invalid" ? "Needs attention" : saved ? "Saved · unverified" : "Not connected"}</span></div>
         {saved && <p className="integration-saved">Saved credential ending in <strong>•••• {saved.masked_suffix}</strong></p>}
-        <label>{provider === "spreaker" ? "Manual access token (optional fallback)" : saved ? "Replace credential" : "Credential"}
+        <label>{saved ? "Replace credential" : "Credential"}
           <input type="password" autoComplete="off" value={secrets[provider]} onChange={e => setSecrets(current => ({ ...current, [provider]: e.target.value }))} placeholder={info.placeholder} />
         </label>
         <div className="integration-actions">
