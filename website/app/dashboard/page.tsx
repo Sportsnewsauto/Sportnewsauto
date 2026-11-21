@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import LegacyAutomationImport from "./legacy-automation-import";
 
 export default async function Dashboard() {
   const supabase = await createClient();
@@ -19,6 +20,7 @@ export default async function Dashboard() {
         <div className="dash-card"><span>Account plan</span><strong>{workspace?.plan ?? "Free"}</strong><small>Monthly subscription options coming later</small></div>
         <div className="dash-card"><span>Automation</span><strong>{automationLabel}</strong><small>{settings?.automation_enabled ? "Scheduled worker enabled" : "Enable it when account connections are ready"}</small></div>
       </div>
+      <LegacyAutomationImport />
       <div className="panel"><h2>Your workspace</h2>
         <div className="connection"><span><strong>{workspace?.name ?? "My Podcast Workspace"}</strong><br/><small>Timezone: {workspace?.timezone ?? "Africa/Nairobi"}</small></span><span className="status">Private account</span></div>
         <p style={{color:"var(--muted)",fontSize:13}}>Your account and workspace are stored in your Supabase database. Only your signed-in account can read or update this workspace.</p>
