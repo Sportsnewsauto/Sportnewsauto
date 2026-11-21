@@ -79,8 +79,18 @@ export default function AuthForm({ mode }: { mode: Mode }) {
           router.refresh();
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        if (email.includes("@")) {
+          const { error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+        } else {
+          const response = await fetch("/api/auth/username-login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: email, password }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Could not sign in.");
+        }
         const next = params.get("next");
         router.replace(next && next.startsWith("/") ? next : "/dashboard");
         router.refresh();
@@ -102,8 +112,8 @@ export default function AuthForm({ mode }: { mode: Mode }) {
         {params.get("setup") === "supabase" && <p className="auth-notice">The website owner needs to finish Supabase setup before dashboard access is available.</p>}
         {params.get("reset") === "success" && <p className="auth-notice">Your password has been updated. Sign in with your new password.</p>}
         <form onSubmit={submit} className="auth-form">
-          <label htmlFor="email">Email address</label>
-          <input id="email" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
+          <label htmlFor="email">{mode === "signup" ? "Email address" : "Email address or username"}</label>
+          <input id="email" type={mode === "signup" ? "email" : "text"} autoComplete={mode === "signup" ? "email" : "username"} required value={email} onChange={e => setEmail(e.target.value)} placeholder={mode === "signup" ? "you@example.com" : "Admin or you@example.com"} />
           <label htmlFor="password">Password</label>
           <input id="password" type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={8} required value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters" />
           {mode === "login" && (
