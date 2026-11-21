@@ -40,6 +40,28 @@ export default function AuthForm({ mode }: { mode: Mode }) {
     }
   }
 
+  async function requestPasswordReset() {
+    if (!email.trim()) {
+      setError("Enter your account email address first.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      });
+      if (error) throw error;
+      setMessage("If an account exists for that email, a password reset link has been sent. Check your inbox and spam folder.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not send a password reset email. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -78,11 +100,17 @@ export default function AuthForm({ mode }: { mode: Mode }) {
         <h1>{mode === "signup" ? "Create your account" : "Sign in"}</h1>
         <p className="auth-description">{mode === "signup" ? "Start with your private podcast workspace. The free plan includes one episode per day." : "Sign in to manage your podcast workspace."}</p>
         {params.get("setup") === "supabase" && <p className="auth-notice">The website owner needs to finish Supabase setup before dashboard access is available.</p>}
+        {params.get("reset") === "success" && <p className="auth-notice">Your password has been updated. Sign in with your new password.</p>}
         <form onSubmit={submit} className="auth-form">
           <label htmlFor="email">Email address</label>
           <input id="email" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
           <label htmlFor="password">Password</label>
           <input id="password" type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={8} required value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters" />
+          {mode === "login" && (
+            <button type="button" className="auth-forgot" onClick={requestPasswordReset} disabled={busy}>
+              Forgot password?
+            </button>
+          )}
           {error && <p className="auth-error" role="alert">{error}</p>}
           {message && <p className="auth-notice" role="status">{message}</p>}
           <button className="btn btn-primary auth-submit" disabled={busy}>{busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}</button>
