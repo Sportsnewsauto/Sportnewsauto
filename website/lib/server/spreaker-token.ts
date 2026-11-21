@@ -16,8 +16,15 @@ type SpreakerTokenBundle = {
 function parseTokenBundle(serialized: string): SpreakerTokenBundle {
   try {
     const parsed = JSON.parse(serialized) as Partial<SpreakerTokenBundle>;
-    if (parsed && typeof parsed.access_token === "string" && parsed.access_token) {
-      return parsed as SpreakerTokenBundle;
+    if (parsed && typeof parsed === "object" && (
+      typeof parsed.access_token === "string" ||
+      typeof parsed.client_id === "string" ||
+      typeof parsed.client_secret === "string"
+    )) {
+      return {
+        ...parsed,
+        access_token: typeof parsed.access_token === "string" ? parsed.access_token : "",
+      } as SpreakerTokenBundle;
     }
   } catch {
     // Backward compatibility for the earlier single access-token field.
