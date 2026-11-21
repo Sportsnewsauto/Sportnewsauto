@@ -34,7 +34,10 @@ async function persistBundle(supabase: SupabaseServer, bundle: SpreakerTokenBund
   });
   if (error) throw new Error("Could not securely save the refreshed Spreaker token.");
 
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Please sign in again before refreshing the Spreaker connection.");
   await supabase.from("integration_connections").upsert({
+    owner_id: user.id,
     provider: "spreaker",
     status: "connected",
     masked_suffix: bundle.access_token.slice(-4),
@@ -62,15 +65,13 @@ export async function getUsableSpreakerAccessToken(supabase: SupabaseServer): Pr
     throw new Error("The Spreaker access token has expired. Reconnect Spreaker to continue.");
   }
 
-  const body = new URLSearchParams({
-    grant_type: "refresh_token",
-    client_id: clientId,
-    client_secret: clientSecret,
-    refresh_token: bundle.refresh_token,
-  });
+  const body = new FormData();
+  body.set("grant_type", "refresh_token");
+  body.set("client_id", clientId);
+  body.set("client_secret", clientSecret);
+  body.set("refresh_token", bundle.refresh_token);
   const response = await fetch("https://api.spreaker.com/oauth2/token", {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
     cache: "no-store",
     signal: AbortSignal.timeout(15000),
