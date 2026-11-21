@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { encryptCredential } from "@/lib/server/credential-vault";
+import { decryptCredential, encryptCredential } from "@/lib/server/credential-vault";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,9 +29,16 @@ export async function GET(request: NextRequest) {
   if (query.get("error")) return finish(request, "authorization-cancelled");
 
   const code = query.get("code");
-  const clientId = process.env.SPREAKER_CLIENT_ID;
-  const clientSecret = process.env.SPREAKER_CLIENT_SECRET;
-  if (!code || !clientId || !clientSecret) return finish(request, "missing-oauth-configuration");
+  if (!code) return finish(request, "missing-oauth-configuration");
+  const { data: stored, error: storedError } = await supabase.rpc("get_integration_credential", { p_provider: "spreaker" });
+  const row = Array.isArray(stored) ? stored[0] : stored;
+  if (storedError || !row) return finish(request, "missing-oauth-configuration");
+  let app: { client_id?: string; client_secret?: string };
+  try { app = JSON.parse(decryptCredential(row)); }
+  catch { return finish(request, "missing-oauth-configuration"); }
+  const clientId = app.client_id;
+  const clientSecret = app.client_secret;
+  if (!clientId || !clientSecret) return finish(request, "missing-oauth-configuration");
 
   const redirectUri = process.env.SPREAKER_REDIRECT_URI
     || new URL("/api/integrations/spreaker/callback", request.url).toString();
@@ -64,6 +71,8 @@ export async function GET(request: NextRequest) {
 
     const expiresIn = Number(tokens.expires_in);
     const bundle = {
+      client_id: clientId,
+      client_secret: clientSecret,
       access_token: tokens.access_token as string,
       refresh_token: typeof tokens.refresh_token === "string" ? tokens.refresh_token : undefined,
       token_type: typeof tokens.token_type === "string" ? tokens.token_type : "Bearer",
