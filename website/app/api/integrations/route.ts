@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ error: "Spreaker returned an invalid show-list page link." }, { status: 502 });
         }
         visited.add(currentPageUrl);
-        const showsResponse = await fetch(currentPageUrl, {
+        const showsResponse: Response = await fetch(currentPageUrl, {
           headers, cache: "no-store", signal: AbortSignal.timeout(8000),
         });
         if (!showsResponse.ok) {
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "Spreaker returned an invalid show-list page link." }, { status: 502 });
         }
         visited.add(currentPageUrl);
-        const showsResponse = await fetch(currentPageUrl, {
+        const showsResponse: Response = await fetch(currentPageUrl, {
           headers, cache: "no-store", signal: AbortSignal.timeout(8000),
         });
         if (!showsResponse.ok) {
