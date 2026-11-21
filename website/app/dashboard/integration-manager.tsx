@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 type Provider = "spreaker" | "groq" | "gemini";
 type Connection = { provider: Provider; status: string; masked_suffix: string; updated_at: string };
+type SpreakerShow = { show_id: string; title: string; site_url: string };
 
 const providerInfo: Record<Provider, { title: string; description: string; placeholder: string }> = {
   spreaker: { title: "Spreaker", description: "OAuth access token used to connect your show and publish episodes.", placeholder: "Paste your Spreaker access token" },
@@ -12,7 +14,11 @@ const providerInfo: Record<Provider, { title: string; description: string; place
 };
 
 export default function IntegrationManager() {
+  const supabase = useMemo(() => createClient(), []);
   const [connections, setConnections] = useState<Connection[]>([]);
+  const [shows, setShows] = useState<SpreakerShow[]>([]);
+  const [selectedShow, setSelectedShow] = useState("");
+  const [showBusy, setShowBusy] = useState(false);
   const [secrets, setSecrets] = useState<Record<Provider, string>>({ spreaker: "", groq: "", gemini: "" });
   const [busy, setBusy] = useState<Provider | "loading" | null>("loading");
   const [notice, setNotice] = useState("");
@@ -24,7 +30,19 @@ export default function IntegrationManager() {
       const response = await fetch("/api/integrations", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not load integrations.");
-      setConnections(data.connections ?? []);
+      const loadedConnections = data.connections ?? [];
+      setConnections(loadedConnections);
+      const spreaker = loadedConnections.find((item: Connection) => item.provider === "spreaker");
+      if (spreaker?.status === "connected") {
+        const showResponse = await fetch("/api/integrations?resource=spreaker-shows", { cache: "no-store" });
+        const showData = await showResponse.json();
+        if (showResponse.ok) setShows(showData.shows ?? []);
+        const { data: settings } = await supabase.from("workspace_settings").select("spreaker_show_id").maybeSingle();
+        setSelectedShow(settings?.spreaker_show_id ?? "");
+      } else {
+        setShows([]);
+        setSelectedShow("");
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load integrations.");
     } finally { setBusy(null); }
@@ -82,6 +100,23 @@ export default function IntegrationManager() {
   }
 
   function connectionFor(provider: Provider) { return connections.find(item => item.provider === provider); }
+\n  async function saveShowSelection() {
+    setShowBusy(true); setError(""); setNotice("");
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error("Please sign in again.");
+      const { error } = await supabase.from("workspace_settings").upsert({
+        owner_id: user.id,
+        spreaker_show_id: selectedShow,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "owner_id" });
+      if (error) throw error;
+      setNotice("Your Spreaker show selection has been saved.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not save the selected Spreaker show.");
+    } finally { setShowBusy(false); }
+  }
+
 
   return <section className="panel integration-list">
     <div className="integration-security"><strong>Encrypted credential storage</strong><p>Credentials are encrypted on the server with AES-256-GCM. The secret value is never returned to the browser. Connections remain marked unverified until a provider test is added.</p></div>
@@ -101,6 +136,16 @@ export default function IntegrationManager() {
         </div>
       </div>;
     })}
+    {connectionFor("spreaker")?.status === "connected" && <div className="integration-card spreaker-show-picker">
+      <div><h2>Choose your Spreaker show</h2><p>Select the show where this workspace will publish. The list comes from the authenticated Spreaker account.</p></div>
+      {shows.length === 0 ? <p className="microcopy">No editable shows were returned for this Spreaker account.</p> : <>
+        <label>Spreaker show<select value={selectedShow} onChange={e => setSelectedShow(e.target.value)}>
+          <option value="">Choose a show…</option>
+          {shows.map(show => <option key={show.show_id} value={show.show_id}>{show.title} (ID {show.show_id})</option>)}
+        </select></label>
+        <button className="btn btn-primary" disabled={showBusy || !selectedShow} onClick={() => void saveShowSelection()}>{showBusy ? "Saving…" : "Save selected show"}</button>
+      </>}
+    </div>}
     {error && <p className="auth-error" role="alert">{error}</p>}
     {notice && <p className="auth-notice" role="status">{notice}</p>}
   </section>;
