@@ -16,7 +16,7 @@ os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
 os.environ.setdefault("SUPABASE_SECRET_KEY", "test-only-supabase-key")
 os.environ.setdefault(
     "CREDENTIAL_ENCRYPTION_KEY",
-    base64.b64encode(b"test-only-32-byte-encryption-key!!").decode("ascii"),
+    base64.b64encode(b"0123456789abcdef0123456789abcdef").decode("ascii"),
 )
 
 import tenant_worker  # noqa: E402
