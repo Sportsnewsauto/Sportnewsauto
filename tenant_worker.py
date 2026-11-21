@@ -354,6 +354,72 @@ def create_schedule_job(db: SupabaseRest, owner_id: str, slot: datetime) -> None
     )
 
 
+PLATFORM_SECRET_ENV_VARS = (
+    "SUPABASE_URL",
+    "SUPABASE_SECRET_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "CREDENTIAL_ENCRYPTION_KEY",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    "SPREAKER_CLIENT_ID",
+    "SPREAKER_CLIENT_SECRET",
+    "SPREAKER_ACCESS_TOKEN",
+    "SPREAKER_SHOW_ID",
+    "GROQ_API_KEY",
+    "GEMINI_API_KEY",
+)
+
+
+def build_workspace_process_env(
+    base_env: dict[str, str],
+    *,
+    settings: dict[str, Any],
+    selected_ai: str,
+    groq_key: str,
+    gemini_key: str,
+    verified_providers: set[str],
+    spreaker_token: str,
+    show_id: str,
+    ad_slots: list[dict[str, int]],
+) -> dict[str, str]:
+    """Build a subprocess environment using only this workspace's provider credentials."""
+    env = dict(base_env)
+    for name in PLATFORM_SECRET_ENV_VARS:
+        env.pop(name, None)
+
+    # A saved Gemini key is only eligible as Groq fallback after that account
+    # has separately verified it. The selected provider is validated by caller.
+    groq_for_run = groq_key if selected_ai == "groq" else ""
+    gemini_for_run = (
+        gemini_key
+        if selected_ai == "gemini" or "gemini" in verified_providers
+        else ""
+    )
+
+    env.update({
+        "GROQ_API_KEY": groq_for_run,
+        "GEMINI_API_KEY": gemini_for_run,
+        "GROQ_TEXT_MODEL": str(settings.get("ai_model") or "openai/gpt-oss-120b") if selected_ai == "groq" else "openai/gpt-oss-120b",
+        "GEMINI_TEXT_MODEL": str(settings.get("ai_model") or "gemini-3.5-flash-lite") if selected_ai == "gemini" else "gemini-3.5-flash-lite",
+        "PODCAST_NAME": str(settings.get("podcast_name") or "Sports News Podcast"),
+        "PODCAST_DESCRIPTION": str(settings.get("podcast_description") or ""),
+        "PODCAST_CATEGORY": str(settings.get("category") or "Sports"),
+        "PODCAST_LANGUAGE": str(settings.get("language") or "en"),
+        "PODCAST_COUNTRY": str(settings.get("country") or "KE"),
+        "AI_WRITING_INSTRUCTIONS": str(settings.get("ai_writing_instructions") or ""),
+        "SPREAKER_ACCESS_TOKEN": spreaker_token,
+        "SPREAKER_SHOW_ID": show_id,
+        "KOKORO_VOICE": str(settings.get("tts_voice") or "af_heart"),
+        "PUBLISHING_MODE": str(settings.get("publishing_mode") or "automatic"),
+        "AD_CUEPOINTS_JSON": json.dumps(ad_slots),
+        "KOKORO_TORCH_THREADS": "4",
+        "OMP_NUM_THREADS": "4",
+        "MKL_NUM_THREADS": "4",
+        "OPENBLAS_NUM_THREADS": "4",
+    })
+    return env
+
+
 def run_pipeline(
     db: SupabaseRest,
     owner_id: str,
@@ -375,11 +441,9 @@ def run_pipeline(
     if selected_ai == "gemini":
         if "gemini" not in verified or not gemini_key:
             raise RuntimeError("Gemini is selected, but its API key is not connected and verified.")
-        groq_for_run = ""
     else:
         if "groq" not in verified or not groq_key:
             raise RuntimeError("Groq is selected, but its API key is not connected and verified.")
-        groq_for_run = groq_key
 
     spreaker_token, _ = usable_spreaker_token(db, owner_id, credentials["spreaker"])
     feeds = workspace_feeds(db, owner_id)
@@ -405,46 +469,18 @@ def run_pipeline(
         (workdir / "config.json").write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
         (workdir / "covered_stories.json").write_text(json.dumps(history, ensure_ascii=False), encoding="utf-8")
 
-        # Provider credentials are injected below from this workspace's own
-        # encrypted records. Do not let platform-level API credentials or
-        # infrastructure secrets leak into the episode-generation subprocess.
-        env = os.environ.copy()
-        for name in (
-            "SUPABASE_URL",
-            "SUPABASE_SECRET_KEY",
-            "SUPABASE_SERVICE_ROLE_KEY",
-            "CREDENTIAL_ENCRYPTION_KEY",
-            "NEXT_PUBLIC_SUPABASE_URL",
-            "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-            "SPREAKER_CLIENT_ID",
-            "SPREAKER_CLIENT_SECRET",
-            "SPREAKER_ACCESS_TOKEN",
-            "SPREAKER_SHOW_ID",
-            "GROQ_API_KEY",
-            "GEMINI_API_KEY",
-        ):
-            env.pop(name, None)
-        env.update({
-            "GROQ_API_KEY": groq_for_run,
-            "GEMINI_API_KEY": gemini_key,
-            "GROQ_TEXT_MODEL": settings.get("ai_model") if selected_ai == "groq" else "openai/gpt-oss-120b",
-            "GEMINI_TEXT_MODEL": settings.get("ai_model") if selected_ai == "gemini" else "gemini-3.5-flash-lite",
-            "PODCAST_NAME": settings.get("podcast_name") or "Sports News Podcast",
-            "PODCAST_DESCRIPTION": settings.get("podcast_description") or "",
-            "PODCAST_CATEGORY": settings.get("category") or "Sports",
-            "PODCAST_LANGUAGE": settings.get("language") or "en",
-            "PODCAST_COUNTRY": settings.get("country") or "KE",
-            "AI_WRITING_INSTRUCTIONS": settings.get("ai_writing_instructions") or "",
-            "SPREAKER_ACCESS_TOKEN": spreaker_token,
-            "SPREAKER_SHOW_ID": show_id,
-            "KOKORO_VOICE": settings.get("tts_voice") or "af_heart",
-            "PUBLISHING_MODE": settings.get("publishing_mode") or "automatic",
-            "AD_CUEPOINTS_JSON": json.dumps(ad_slots),
-            "KOKORO_TORCH_THREADS": "4",
-            "OMP_NUM_THREADS": "4",
-            "MKL_NUM_THREADS": "4",
-            "OPENBLAS_NUM_THREADS": "4",
-        })
+        # Only this workspace's verified provider credentials enter the pipeline.
+        env = build_workspace_process_env(
+            os.environ,
+            settings=settings,
+            selected_ai=selected_ai,
+            groq_key=groq_key,
+            gemini_key=gemini_key,
+            verified_providers=verified,
+            spreaker_token=spreaker_token,
+            show_id=show_id,
+            ad_slots=ad_slots,
+        )
 
         for filename in SCRIPT_FILES:
             print(f"[{owner_id}] Running {filename}", flush=True)
