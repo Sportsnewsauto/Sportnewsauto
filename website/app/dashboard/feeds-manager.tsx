@@ -5,21 +5,300 @@ import { createClient } from "@/lib/supabase/client";
 
 type Feed = { id: string; name: string; feed_url: string; sport: string; league: string; enabled: boolean };
 const presets = [
-  { name: "BBC Sport – All Sports", feed_url: "https://feeds.bbci.co.uk/sport/rss.xml", sport: "General", league: "All sports" },
-  { name: "Sky Sports – All Sports", feed_url: "https://www.skysports.com/rss/12040", sport: "General", league: "All sports" },
-  { name: "ESPN – All Sports", feed_url: "https://www.espn.com/espn/rss/news", sport: "General", league: "All sports" },
-  { name: "The Guardian – Sport", feed_url: "https://www.theguardian.com/uk/sport/rss", sport: "General", league: "All sports" },
-  { name: "BBC Sport – Football", feed_url: "https://feeds.bbci.co.uk/sport/football/rss.xml", sport: "Football", league: "General" },
-  { name: "BBC Sport – Premier League", feed_url: "https://feeds.bbci.co.uk/sport/football/premier-league/rss.xml", sport: "Football", league: "Premier League" },
-  { name: "Sky Sports – Premier League", feed_url: "https://www.skysports.com/rss/11661", sport: "Football", league: "Premier League" },
-  { name: "BBC Sport – Champions League", feed_url: "https://feeds.bbci.co.uk/sport/football/champions-league/rss.xml", sport: "Football", league: "UEFA Champions League" },
-  { name: "BBC Sport – European Football", feed_url: "https://feeds.bbci.co.uk/sport/football/european/rss.xml", sport: "Football", league: "European leagues" },
-  { name: "ESPN – Soccer", feed_url: "https://www.espn.com/espn/rss/soccer/news", sport: "Football", league: "International" },
-  { name: "ESPNcricinfo – Cricket", feed_url: "https://www.espncricinfo.com/rss/content/story/feeds/0.xml", sport: "Cricket", league: "International" },
-  { name: "BBC Sport – Cricket", feed_url: "https://feeds.bbci.co.uk/sport/cricket/rss.xml", sport: "Cricket", league: "International" },
-  { name: "Formula One – Official News", feed_url: "https://www.formula1.com/en/latest/all.xml", sport: "Motorsport", league: "Formula One" },
-  { name: "BBC Sport – Tennis", feed_url: "https://feeds.bbci.co.uk/sport/tennis/rss.xml", sport: "Tennis", league: "International" },
-  { name: "BBC Sport – Rugby Union", feed_url: "https://feeds.bbci.co.uk/sport/rugby-union/rss.xml", sport: "Rugby", league: "Rugby Union" },
+  {
+    "name": "BBC Sport - All Sports",
+    "feed_url": "https://feeds.bbci.co.uk/sport/rss.xml",
+    "sport": "General",
+    "league": ""
+  },
+  {
+    "name": "Sky Sports - All Sports",
+    "feed_url": "https://www.skysports.com/rss/12040",
+    "sport": "General",
+    "league": ""
+  },
+  {
+    "name": "ESPN - All Sports",
+    "feed_url": "https://www.espn.com/espn/rss/news",
+    "sport": "General",
+    "league": ""
+  },
+  {
+    "name": "The Athletic - All Sports",
+    "feed_url": "https://www.nytimes.com/athletic/rss/news/",
+    "sport": "General",
+    "league": ""
+  },
+  {
+    "name": "Yahoo Sports",
+    "feed_url": "https://sports.yahoo.com/rss/",
+    "sport": "General",
+    "league": ""
+  },
+  {
+    "name": "The Guardian - Sport",
+    "feed_url": "https://www.theguardian.com/uk/sport/rss",
+    "sport": "General",
+    "league": ""
+  },
+  {
+    "name": "CBS Sports - All Sports",
+    "feed_url": "https://www.cbssports.com/rss/headlines/",
+    "sport": "General",
+    "league": ""
+  },
+  {
+    "name": "Sports Illustrated",
+    "feed_url": "https://www.si.com/feed",
+    "sport": "General",
+    "league": ""
+  },
+  {
+    "name": "ESPNcricinfo - Cricket",
+    "feed_url": "https://www.espncricinfo.com/rss/content/story/feeds/0.xml",
+    "sport": "Cricket",
+    "league": "Cricket"
+  },
+  {
+    "name": "Formula One - Official News",
+    "feed_url": "https://www.formula1.com/en/latest/all.xml",
+    "sport": "Motorsport",
+    "league": "Formula One"
+  },
+  {
+    "name": "Sky News - Sports",
+    "feed_url": "https://feeds.skynews.com/feeds/rss/sports.xml",
+    "sport": "General",
+    "league": ""
+  },
+  {
+    "name": "BBC Sport - Football",
+    "feed_url": "https://feeds.bbci.co.uk/sport/football/rss.xml",
+    "sport": "Football",
+    "league": "Football"
+  },
+  {
+    "name": "Sky Sports - Football",
+    "feed_url": "https://www.skysports.com/rss/11095",
+    "sport": "Football",
+    "league": "Football"
+  },
+  {
+    "name": "BBC Sport - Cricket",
+    "feed_url": "https://feeds.bbci.co.uk/sport/cricket/rss.xml",
+    "sport": "Cricket",
+    "league": "Cricket"
+  },
+  {
+    "name": "BBC Sport - Rugby Union",
+    "feed_url": "https://feeds.bbci.co.uk/sport/rugby-union/rss.xml",
+    "sport": "Rugby",
+    "league": "Rugby"
+  },
+  {
+    "name": "BBC Sport - Tennis",
+    "feed_url": "https://feeds.bbci.co.uk/sport/tennis/rss.xml",
+    "sport": "Tennis",
+    "league": "Tennis"
+  },
+  {
+    "name": "BBC Sport - Premier League",
+    "feed_url": "https://feeds.bbci.co.uk/sport/football/premier-league/rss.xml",
+    "sport": "Football",
+    "league": "Premier League"
+  },
+  {
+    "name": "BBC Sport - Champions League",
+    "feed_url": "https://feeds.bbci.co.uk/sport/football/champions-league/rss.xml",
+    "sport": "Football",
+    "league": "Champions League"
+  },
+  {
+    "name": "BBC Sport - European Football",
+    "feed_url": "https://feeds.bbci.co.uk/sport/football/european/rss.xml",
+    "sport": "Football",
+    "league": "European Football"
+  },
+  {
+    "name": "BBC Sport - FA Cup",
+    "feed_url": "https://feeds.bbci.co.uk/sport/football/fa-cup/rss.xml",
+    "sport": "General",
+    "league": ""
+  },
+  {
+    "name": "BBC Sport - Women's Football",
+    "feed_url": "https://feeds.bbci.co.uk/sport/football/womens/rss.xml",
+    "sport": "Football",
+    "league": "Women's Football"
+  },
+  {
+    "name": "Sky Sports - Premier League",
+    "feed_url": "https://www.skysports.com/rss/11661",
+    "sport": "Football",
+    "league": "Premier League"
+  },
+  {
+    "name": "Sky Sports - Formula One",
+    "feed_url": "https://www.skysports.com/rss/12433",
+    "sport": "Motorsport",
+    "league": "Formula One"
+  },
+  {
+    "name": "Sky Sports - Cricket",
+    "feed_url": "https://www.skysports.com/rss/12123",
+    "sport": "Cricket",
+    "league": "Cricket"
+  },
+  {
+    "name": "Sky Sports - Tennis",
+    "feed_url": "https://www.skysports.com/rss/12110",
+    "sport": "Tennis",
+    "league": "Tennis"
+  },
+  {
+    "name": "Sky Sports - Golf",
+    "feed_url": "https://www.skysports.com/rss/12176",
+    "sport": "Golf",
+    "league": "Golf"
+  },
+  {
+    "name": "Sky Sports - Boxing",
+    "feed_url": "https://www.skysports.com/rss/12183",
+    "sport": "Boxing",
+    "league": "Boxing"
+  },
+  {
+    "name": "Sky Sports - Rugby Union",
+    "feed_url": "https://www.skysports.com/rss/12321",
+    "sport": "Rugby",
+    "league": "Rugby"
+  },
+  {
+    "name": "Sky Sports - NFL",
+    "feed_url": "https://www.skysports.com/rss/12118",
+    "sport": "American Football",
+    "league": "NFL"
+  },
+  {
+    "name": "ESPN - Soccer",
+    "feed_url": "https://www.espn.com/espn/rss/soccer/news",
+    "sport": "Football",
+    "league": "Soccer"
+  },
+  {
+    "name": "ESPN - NBA",
+    "feed_url": "https://www.espn.com/espn/rss/nba/news",
+    "sport": "Basketball",
+    "league": "Basketball"
+  },
+  {
+    "name": "ESPN - NFL",
+    "feed_url": "https://www.espn.com/espn/rss/nfl/news",
+    "sport": "American Football",
+    "league": "NFL"
+  },
+  {
+    "name": "ESPN - MLB",
+    "feed_url": "https://www.espn.com/espn/rss/mlb/news",
+    "sport": "Baseball",
+    "league": "MLB"
+  },
+  {
+    "name": "ESPN - NHL",
+    "feed_url": "https://www.espn.com/espn/rss/nhl/news",
+    "sport": "Ice Hockey",
+    "league": "NHL"
+  },
+  {
+    "name": "ESPN - Motorsports",
+    "feed_url": "https://www.espn.com/espn/rss/rpm/news",
+    "sport": "Motorsport",
+    "league": "Formula One"
+  },
+  {
+    "name": "ESPN - College Basketball",
+    "feed_url": "https://www.espn.com/espn/rss/ncb/news",
+    "sport": "Basketball",
+    "league": "Basketball"
+  },
+  {
+    "name": "ESPN - College Football",
+    "feed_url": "https://www.espn.com/espn/rss/ncf/news",
+    "sport": "Football",
+    "league": "College Football"
+  },
+  {
+    "name": "MLB - Official News",
+    "feed_url": "https://www.mlb.com/feeds/news/rss.xml",
+    "sport": "Baseball",
+    "league": "MLB"
+  },
+  {
+    "name": "Autosport - Motorsport",
+    "feed_url": "https://www.autosport.com/rss/feed/all",
+    "sport": "Motorsport",
+    "league": "Formula One"
+  },
+  {
+    "name": "ProFootballTalk - NFL",
+    "feed_url": "https://www.nbcsports.com/profootballtalk.rss",
+    "sport": "Football",
+    "league": "ProFootballTalk - NFL"
+  },
+  {
+    "name": "Google News - Global Sports",
+    "feed_url": "https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-US&gl=US&ceid=US:en",
+    "sport": "General",
+    "league": ""
+  },
+  {
+    "name": "Google News - Premier League",
+    "feed_url": "https://news.google.com/rss/search?q=Premier+League+football+when%3A1d&hl=en-GB&gl=GB&ceid=GB%3Aen",
+    "sport": "Football",
+    "league": "Premier League"
+  },
+  {
+    "name": "Google News - UEFA Champions League",
+    "feed_url": "https://news.google.com/rss/search?q=UEFA+Champions+League+when%3A1d&hl=en-GB&gl=GB&ceid=GB%3Aen",
+    "sport": "Football",
+    "league": "UEFA Champions League"
+  },
+  {
+    "name": "Google News - La Liga",
+    "feed_url": "https://news.google.com/rss/search?q=La+Liga+football+when%3A1d&hl=en-GB&gl=GB&ceid=GB%3Aen",
+    "sport": "Football",
+    "league": "La Liga"
+  },
+  {
+    "name": "Google News - Serie A",
+    "feed_url": "https://news.google.com/rss/search?q=Serie+A+football+when%3A1d&hl=en-GB&gl=GB&ceid=GB%3Aen",
+    "sport": "Football",
+    "league": "Serie A"
+  },
+  {
+    "name": "Google News - Bundesliga",
+    "feed_url": "https://news.google.com/rss/search?q=Bundesliga+football+when%3A1d&hl=en-GB&gl=GB&ceid=GB%3Aen",
+    "sport": "Football",
+    "league": "Bundesliga"
+  },
+  {
+    "name": "Google News - Ligue 1",
+    "feed_url": "https://news.google.com/rss/search?q=Ligue+1+football+when%3A1d&hl=en-GB&gl=GB&ceid=GB%3Aen",
+    "sport": "Football",
+    "league": "Ligue 1"
+  },
+  {
+    "name": "Google News - African Football",
+    "feed_url": "https://news.google.com/rss/search?q=African+football+CAF+when%3A1d&hl=en&gl=KE&ceid=KE%3Aen",
+    "sport": "Football",
+    "league": "African Football"
+  },
+  {
+    "name": "Google News - Kenyan Sports",
+    "feed_url": "https://news.google.com/rss/search?q=Kenya+sports+when%3A1d&hl=en&gl=KE&ceid=KE%3Aen",
+    "sport": "General",
+    "league": ""
+  }
 ];
 
 export default function FeedsManager() {
@@ -89,7 +368,7 @@ export default function FeedsManager() {
 
   return <div className="dash-main">
     <div className="dash-top"><div><p className="section-kicker">CONTENT SOURCES</p><h1>Sports News Feeds</h1><p>Add RSS feeds for every sport and league you want to cover.</p></div><span className="pill">{feeds.filter(x => x.enabled).length} enabled</span></div>
-    <div className="panel"><div className="panel-heading-row"><div><h2>Starter sports feed list</h2><p>Includes general sports, football, Premier League, Champions League, cricket, Formula One, tennis and rugby sources from your existing automation configuration.</p></div><button className="btn btn-outline" onClick={() => void addStarterFeeds()} disabled={busy}>Add starter feeds</button></div></div>
+    <div className="panel"><div className="panel-heading-row"><div><h2>Starter sports feed list</h2><p>Imports all sports RSS feeds currently configured in your existing automation, including all league-specific football feeds.</p></div><button className="btn btn-outline" onClick={() => void addStarterFeeds()} disabled={busy}>Add starter feeds</button></div></div>
     <form className="panel section-form" onSubmit={addFeed}>
       <h2>Add an RSS feed</h2>
       <label>Feed name<input required value={name} onChange={e => setName(e.target.value)} placeholder="Sports publisher or league" /></label>
