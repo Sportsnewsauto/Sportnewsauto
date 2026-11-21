@@ -140,6 +140,19 @@ def load_credentials(db: SupabaseRest, owner_id: str) -> dict[str, str]:
     return credentials
 
 
+def connected_providers(db: SupabaseRest, owner_id: str) -> set[str]:
+    rows = db.select(
+        "integration_connections",
+        select="provider,status",
+        owner_id=f"eq.{owner_id}",
+    )
+    return {
+        str(row.get("provider"))
+        for row in rows
+        if row.get("status") == "connected"
+    }
+
+
 def usable_spreaker_token(db: SupabaseRest, owner_id: str, raw: str) -> tuple[str, dict[str, Any]]:
     bundle = parse_spreaker_bundle(raw)
     access_token = bundle.get("access_token")
@@ -337,8 +350,9 @@ def run_pipeline(
     job_id: str,
 ) -> None:
     credentials = load_credentials(db, owner_id)
-    if not credentials.get("spreaker"):
-        raise RuntimeError("Connect Spreaker in API Connections and choose a show before enabling automation.")
+    verified = connected_providers(db, owner_id)
+    if "spreaker" not in verified or not credentials.get("spreaker"):
+        raise RuntimeError("Connect and verify Spreaker in API Connections before enabling automation.")
     show_id = (settings.get("spreaker_show_id") or "").strip()
     if not show_id:
         raise RuntimeError("Choose a Spreaker show in API Connections before enabling automation.")
@@ -347,12 +361,12 @@ def run_pipeline(
     groq_key = credentials.get("groq", "")
     gemini_key = credentials.get("gemini", "")
     if selected_ai == "gemini":
-        if not gemini_key:
-            raise RuntimeError("Gemini is selected, but no Gemini API key is connected.")
+        if "gemini" not in verified or not gemini_key:
+            raise RuntimeError("Gemini is selected, but its API key is not connected and verified.")
         groq_for_run = ""
     else:
-        if not groq_key:
-            raise RuntimeError("Groq is selected, but no Groq API key is connected.")
+        if "groq" not in verified or not groq_key:
+            raise RuntimeError("Groq is selected, but its API key is not connected and verified.")
         groq_for_run = groq_key
 
     spreaker_token, _ = usable_spreaker_token(db, owner_id, credentials["spreaker"])
@@ -477,8 +491,8 @@ def process_publish_job(db: SupabaseRest, job: dict[str, Any]) -> None:
         raise RuntimeError("The episode is missing its Spreaker episode ID.")
 
     credentials = load_credentials(db, owner_id)
-    if not credentials.get("spreaker"):
-        raise RuntimeError("Connect Spreaker again before publishing this episode.")
+    if "spreaker" not in connected_providers(db, owner_id) or not credentials.get("spreaker"):
+        raise RuntimeError("Connect and verify Spreaker again before publishing this episode.")
     token, _ = usable_spreaker_token(db, owner_id, credentials["spreaker"])
     published_at = now_utc().strftime("%Y-%m-%d %H:%M:%S")
     response = requests.post(
