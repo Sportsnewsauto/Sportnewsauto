@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
   let body: unknown;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
-  const input = body as { provider?: unknown; secret?: unknown; action?: unknown; clientId?: unknown; clientSecret?: unknown; showId?: unknown };
+  const input = body as { provider?: unknown; secret?: unknown; action?: unknown; clientId?: unknown; clientSecret?: unknown; accessToken?: unknown; showId?: unknown };
   if (!isProvider(input?.provider)) {
     return NextResponse.json({ error: "Choose a valid provider." }, { status: 400 });
   }
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
       clientId.length < 3 || clientId.length > 512 ||
       clientSecret.length < 8 || clientSecret.length > 4096 ||
       accessToken.length < 4 || accessToken.length > 8192 ||
-      /[\\r\\n]/.test(clientId + clientSecret + accessToken)
+      /[\r\n]/.test(clientId + clientSecret + accessToken)
     ) {
       return NextResponse.json({ error: "Enter your Spreaker Client ID, Client Secret, and Access Token." }, { status: 400 });
     }
