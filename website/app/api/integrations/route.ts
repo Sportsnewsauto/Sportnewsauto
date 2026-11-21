@@ -16,10 +16,51 @@ function providerInfoLabel(provider: Provider): string {
   return provider === "spreaker" ? "Spreaker" : provider === "groq" ? "Groq" : "Google Gemini";
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
+
+  if (request.nextUrl.searchParams.get("resource") === "spreaker-shows") {
+    const { data: stored, error: readError } = await supabase.rpc("get_integration_credential", { p_provider: "spreaker" });
+    if (readError) return NextResponse.json({ error: "Spreaker credential lookup is not available. Apply the latest Supabase migration 0002." }, { status: 503 });
+    const row = Array.isArray(stored) ? stored[0] : stored;
+    if (!row) return NextResponse.json({ error: "Save and verify your Spreaker credential first." }, { status: 404 });
+
+    let token: string;
+    try { token = decryptCredential(row); }
+    catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Could not decrypt the Spreaker credential.";
+      return NextResponse.json({ error: message }, { status: 503 });
+    }
+
+    const headers = { Authorization: `Bearer ${token}` };
+    try {
+      const meResponse = await fetch("https://api.spreaker.com/v2/me", {
+        headers, cache: "no-store", signal: AbortSignal.timeout(8000),
+      });
+      if (!meResponse.ok) return NextResponse.json({ error: "Spreaker rejected the saved token. Verify it again." }, { status: 422 });
+      const mePayload = await meResponse.json();
+      const userId = mePayload?.response?.user?.user_id;
+      if (!userId || !/^\\d+$/.test(String(userId))) {
+        return NextResponse.json({ error: "Spreaker did not return a valid account ID." }, { status: 502 });
+      }
+
+      const showsResponse = await fetch(
+        `https://api.spreaker.com/v2/users/${encodeURIComponent(String(userId))}/shows?filter=editable&limit=100`,
+        { headers, cache: "no-store", signal: AbortSignal.timeout(8000) },
+      );
+      if (!showsResponse.ok) return NextResponse.json({ error: "Could not retrieve editable Spreaker shows for this account." }, { status: 502 });
+      const showsPayload = await showsResponse.json();
+      const items = Array.isArray(showsPayload?.response?.items) ? showsPayload.response.items : [];
+      const shows = items
+        .filter((item: any) => item && /^\\d+$/.test(String(item.show_id)) && typeof item.title === "string")
+        .map((item: any) => ({ show_id: String(item.show_id), title: item.title, site_url: typeof item.site_url === "string" ? item.site_url : "" }));
+      return NextResponse.json({ shows }, { headers: { "Cache-Control": "no-store" } });
+    } catch {
+      return NextResponse.json({ error: "Could not reach Spreaker right now. Try again." }, { status: 502 });
+    }
+  }
 
   const { data, error } = await supabase
     .from("integration_connections")
