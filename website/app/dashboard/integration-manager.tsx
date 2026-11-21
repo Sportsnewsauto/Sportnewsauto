@@ -147,17 +147,16 @@ export default function IntegrationManager() {
   async function saveShowSelection() {
     setShowBusy(true); setError(""); setNotice("");
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) throw new Error("Please sign in again.");
-      const { error } = await supabase.from("workspace_settings").upsert({
-        owner_id: user.id,
-        spreaker_show_id: selectedShow,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "owner_id" });
-      if (error) throw error;
-      setNotice("Your Spreaker show selection has been saved.");
+      const response = await fetch("/api/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: "spreaker", action: "save-show", showId: selectedShow.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not verify or save this Spreaker Show ID.");
+      setNotice(data.message || "Your Spreaker Show ID has been verified and saved.");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not save the selected Spreaker show.");
+      setError(cause instanceof Error ? cause.message : "Could not verify or save this Spreaker Show ID.");
     } finally { setShowBusy(false); }
   }
 
@@ -194,14 +193,24 @@ export default function IntegrationManager() {
     })}
     {connectionFor("spreaker")?.status === "connected" && <div className="integration-card spreaker-show-picker">
       <div><h2>Choose your Spreaker show</h2><p>Select the show where this workspace will publish. The website retrieves your editable shows from the connected Spreaker account and saves the chosen Show ID automatically. You do not need to type the ID manually.</p></div>
-      {shows.length === 0 ? <p className="microcopy">No editable shows were returned for this Spreaker account.</p> : <>
-        <label>Spreaker show<select value={selectedShow} onChange={e => setSelectedShow(e.target.value)}>
-          <option value="">Choose a show…</option>
-          {shows.map(show => <option key={show.show_id} value={show.show_id}>{show.title} (ID {show.show_id})</option>)}
-        </select></label>
-        <p className="integration-saved">Selected Spreaker Show ID: <strong>{selectedShow || "Not selected"}</strong></p>
-        <button className="btn btn-primary" disabled={showBusy || !selectedShow} onClick={() => void saveShowSelection()}>{showBusy ? "Saving…" : "Save selected show"}</button>
-      </>}
+      {shows.length > 0 && <label>Choose from your editable Spreaker shows<select value={shows.some(show => show.show_id === selectedShow) ? selectedShow : ""} onChange={e => setSelectedShow(e.target.value)}>
+        <option value="">Choose a show…</option>
+        {shows.map(show => <option key={show.show_id} value={show.show_id}>{show.title} (ID {show.show_id})</option>)}
+      </select></label>}
+      {shows.length === 0 && <p className="microcopy">No editable shows were returned in the list. You can still enter your Show ID below; it will be checked with Spreaker before saving.</p>}
+      <label>Or enter your Spreaker Show ID manually
+        <input
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          value={selectedShow}
+          onChange={e => setSelectedShow(e.target.value.replace(/[^0-9]/g, ""))}
+          placeholder="Example: 6806102"
+        />
+      </label>
+      <p className="microcopy">Find the Show ID in your Spreaker show page URL or dashboard. We verify that the connected account can edit it before saving.</p>
+      <p className="integration-saved">Spreaker Show ID: <strong>{selectedShow || "Not selected"}</strong></p>
+      <button className="btn btn-primary" disabled={showBusy || !/^\\d{1,20}$/.test(selectedShow.trim())} onClick={() => void saveShowSelection()}>{showBusy ? "Verifying…" : "Verify and save Show ID"}</button>
     </div>}
     {error && <p className="auth-error" role="alert">{error}</p>}
     {notice && <p className="auth-notice" role="status">{notice}</p>}
