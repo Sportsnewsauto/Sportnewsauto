@@ -19,11 +19,10 @@ Set these in the Vercel project (and in `website/.env.local` for local developme
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `CREDENTIAL_ENCRYPTION_KEY` — server-only, base64-encoded 32-byte key for AES-256-GCM. Never prefix it with `NEXT_PUBLIC_`, commit it, or put it in browser code.
-- `SPREAKER_CLIENT_ID` — OAuth application Client ID from Spreaker Developers.
-- `SPREAKER_CLIENT_SECRET` — OAuth application Client Secret from Spreaker Developers. Server-only.
-- `SPREAKER_REDIRECT_URI` — exact callback URL registered in Spreaker Developers: `https://sportnewsauto.vercel.app/api/integrations/spreaker/callback`.
+- No platform-wide Spreaker OAuth Client ID or Client Secret is required. Each workspace owner enters their own Client ID and Client Secret in Dashboard → API Connections; they are encrypted with that user's credential record.
+- Each user's Spreaker Developer App must register this callback URL: `https://sportnewsauto.vercel.app/api/integrations/spreaker/callback`.
 
-The Spreaker Client ID and Client Secret belong to the platform's registered OAuth app. Individual users authorize their own Spreaker accounts through OAuth. Their access and refresh tokens are stored encrypted per workspace; they are not shown again in the browser.
+Each user supplies their own Spreaker Developer App Client ID and Client Secret. The app credentials and the resulting access/refresh token bundle are encrypted and scoped to that signed-in user's workspace. No customer's OAuth application credentials are shared with another customer.
 
 ## GitHub Actions repository secrets for the multi-workspace worker
 
@@ -31,7 +30,7 @@ Before the worker can process accounts, add these repository secrets:
 
 - `SUPABASE_SECRET_KEY` — the Supabase server-only Secret key (`sb_secret_...`). GitHub Actions only; never add it to website code or Vercel public variables. The worker also accepts the older `SUPABASE_SERVICE_ROLE_KEY` name for a legacy `service_role` key.
 - `CREDENTIAL_ENCRYPTION_KEY` — exactly the same base64 key as the Vercel value, so the worker can decrypt credentials saved by the website.
-- `SPREAKER_CLIENT_ID` and `SPREAKER_CLIENT_SECRET` — the same OAuth app credentials as Vercel.
+- No shared Spreaker app secrets are needed by the worker. It reads each user's own encrypted app credentials and token bundle.
 
 The worker reads the existing `NEXT_PUBLIC_SUPABASE_URL` GitHub secret as `SUPABASE_URL`.
 
@@ -62,7 +61,7 @@ In Supabase Authentication → URL Configuration, set the Site URL to the deploy
 ## Still requires external setup
 
 - Run migration 0003 in Supabase before using the new credential-removal RPC, automation switch and worker idempotency.
-- Register the Spreaker OAuth callback URL in the Spreaker Developer App and add the Spreaker OAuth environment variables to Vercel.
+- Each user registers the website callback URL in their own Spreaker Developer App, then saves their own Client ID and Client Secret under Dashboard → API Connections.
 - Add the GitHub Actions worker secrets listed above. The new worker is safely inactive until these are present.
 - For each workspace, connect Spreaker, select a show, connect the chosen Groq or Gemini provider, enable news feeds and then explicitly enable scheduled generation. The worker runs on the eight Nairobi-time schedule checks and enforces each workspace's daily limit.
 - Accept Spreaker's Ad Exchange terms in the Spreaker account if you want Spreaker to use the submitted advertising cue points. Cue points are not the same as supplying your own ad audio or campaigns.
