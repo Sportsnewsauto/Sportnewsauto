@@ -20,6 +20,8 @@ export default function IntegrationManager() {
   const [selectedShow, setSelectedShow] = useState("");
   const [showBusy, setShowBusy] = useState(false);
   const [secrets, setSecrets] = useState<Record<Provider, string>>({ spreaker: "", groq: "", gemini: "" });
+  const [spreakerClientId, setSpreakerClientId] = useState("");
+  const [spreakerClientSecret, setSpreakerClientSecret] = useState("");
   const [busy, setBusy] = useState<Provider | "loading" | null>("loading");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -52,7 +54,8 @@ export default function IntegrationManager() {
     const result = new URLSearchParams(window.location.search).get("spreaker");
     const messages: Record<string, string> = {
       connected: "Spreaker account connected successfully. Choose your show below.",
-      "app-not-configured": "The website owner must add SPREAKER_CLIENT_ID and SPREAKER_CLIENT_SECRET to Vercel before Spreaker OAuth can start.",
+      "app-not-configured": "Enter your own Spreaker Client ID and Client Secret below, then save them before connecting.",
+      "app-credentials-missing": "Save your own Spreaker Client ID and Client Secret before connecting.",
       "please-sign-in": "Please sign in again before connecting Spreaker.",
       "state-check-failed": "Spreaker authorization could not be verified. Please try connecting again.",
       "authorization-cancelled": "Spreaker authorization was cancelled.",
@@ -85,6 +88,24 @@ export default function IntegrationManager() {
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not save credential.");
+    } finally { setBusy(null); }
+  }
+
+  async function saveSpreakerApp() {
+    setBusy("spreaker"); setError(""); setNotice("");
+    try {
+      const response = await fetch("/api/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: "spreaker", action: "save-app", clientId: spreakerClientId, clientSecret: spreakerClientSecret }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not save your Spreaker application credentials.");
+      setSpreakerClientId(""); setSpreakerClientSecret("");
+      setNotice(data.message || "Your Spreaker application credentials were saved securely.");
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not save your Spreaker application credentials.");
     } finally { setBusy(null); }
   }
 
@@ -142,7 +163,16 @@ export default function IntegrationManager() {
 
   return <section className="panel integration-list">
     <div className="integration-security"><strong>Encrypted credential storage</strong><p>Credentials are encrypted on the server with AES-256-GCM. The secret value is never returned to the browser. Saved credentials can be tested against each provider; the secret itself is never returned to the browser.</p></div>
-    <div className="integration-security"><strong>Connect your Spreaker account</strong><p>Use Spreaker OAuth to authorize this workspace. The website securely stores the access and refresh tokens. The app Client ID and Client Secret are configured by the website owner on the server, never in public browser code.</p><a className="btn btn-primary" href="/api/integrations/spreaker/connect">Connect Spreaker account</a></div>
+    <div className="integration-security">
+      <strong>Your own Spreaker Developer App</strong>
+      <p>Every customer uses their own Spreaker Client ID and Client Secret. These are encrypted and saved only to this signed-in account. In your Spreaker Developer App, register this callback URL: https://sportnewsauto.vercel.app/api/integrations/spreaker/callback</p>
+      <label>Spreaker Client ID<input type="text" autoComplete="off" value={spreakerClientId} onChange={e => setSpreakerClientId(e.target.value)} placeholder="Enter your Spreaker Client ID" /></label>
+      <label>Spreaker Client Secret<input type="password" autoComplete="new-password" value={spreakerClientSecret} onChange={e => setSpreakerClientSecret(e.target.value)} placeholder="Enter your Spreaker Client Secret" /></label>
+      <div className="integration-actions">
+        <button className="btn btn-primary" disabled={busy !== null || !spreakerClientId.trim() || !spreakerClientSecret.trim()} onClick={() => void saveSpreakerApp()}>{busy === "spreaker" ? "Saving…" : "Save my Spreaker app securely"}</button>
+        <a className="btn btn-outline" href="/api/integrations/spreaker/connect">Authorize my Spreaker account</a>
+      </div>
+    </div>
     {(["spreaker", "groq", "gemini"] as const).map(provider => {
       const info = providerInfo[provider];
       const saved = connectionFor(provider);
