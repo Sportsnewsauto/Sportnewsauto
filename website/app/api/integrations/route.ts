@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
       // Spreaker paginates show lists (up to 100 per page). Follow its
       // next_url so customers with many shows can still select the right one.
-      const shows: SpreakerShow[] = [];
+      const shows: { show_id: string; title: string; site_url: string }[] = [];
       const visited = new Set<string>();
       let nextUrl: string | null =
         `https://api.spreaker.com/v2/users/${encodeURIComponent(String(userId))}/shows?filter=editable&limit=100`;
