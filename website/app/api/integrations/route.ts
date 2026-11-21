@@ -47,16 +47,36 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Spreaker did not return a valid account ID." }, { status: 502 });
       }
 
-      const showsResponse = await fetch(
-        `https://api.spreaker.com/v2/users/${encodeURIComponent(String(userId))}/shows?filter=editable&limit=100`,
-        { headers, cache: "no-store", signal: AbortSignal.timeout(8000) },
-      );
-      if (!showsResponse.ok) return NextResponse.json({ error: "Could not retrieve editable Spreaker shows for this account." }, { status: 502 });
-      const showsPayload = await showsResponse.json();
-      const items = Array.isArray(showsPayload?.response?.items) ? showsPayload.response.items : [];
-      const shows = items
-        .filter((item: any) => item && /^\\d+$/.test(String(item.show_id)) && typeof item.title === "string")
-        .map((item: any) => ({ show_id: String(item.show_id), title: item.title, site_url: typeof item.site_url === "string" ? item.site_url : "" }));
+      // Spreaker paginates show lists (up to 100 per page). Follow its
+      // next_url so customers with many shows can still select the right one.
+      const shows: SpreakerShow[] = [];
+      const visited = new Set<string>();
+      let nextUrl: string | null =
+        `https://api.spreaker.com/v2/users/${encodeURIComponent(String(userId))}/shows?filter=editable&limit=100`;
+      for (let page = 0; page < 20 && nextUrl; page += 1) {
+        const pageUrl = new URL(nextUrl);
+        if (pageUrl.origin !== "https://api.spreaker.com" || visited.has(pageUrl.toString())) {
+          return NextResponse.json({ error: "Spreaker returned an invalid show-list page link." }, { status: 502 });
+        }
+        visited.add(pageUrl.toString());
+        const showsResponse = await fetch(pageUrl, {
+          headers, cache: "no-store", signal: AbortSignal.timeout(8000),
+        });
+        if (!showsResponse.ok) {
+          return NextResponse.json({ error: "Could not retrieve editable Spreaker shows for this account." }, { status: 502 });
+        }
+        const showsPayload = await showsResponse.json();
+        const items = Array.isArray(showsPayload?.response?.items) ? showsPayload.response.items : [];
+        shows.push(...items
+          .filter((item: any) => item && /^\\d+$/.test(String(item.show_id)) && typeof item.title === "string")
+          .map((item: any) => ({
+            show_id: String(item.show_id),
+            title: item.title,
+            site_url: typeof item.site_url === "string" ? item.site_url : "",
+          })));
+        const candidate = showsPayload?.response?.next_url;
+        nextUrl = typeof candidate === "string" && candidate ? candidate : null;
+      }
       return NextResponse.json({ shows }, { headers: { "Cache-Control": "no-store" } });
     } catch {
       return NextResponse.json({ error: "Could not reach Spreaker right now. Try again." }, { status: 502 });
