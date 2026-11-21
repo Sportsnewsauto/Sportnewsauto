@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { decryptCredential } from "@/lib/server/credential-vault";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,11 +11,15 @@ export async function GET(request: NextRequest) {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return NextResponse.redirect(new URL("/login", request.url));
 
-  const clientId = process.env.SPREAKER_CLIENT_ID;
-  const clientSecret = process.env.SPREAKER_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
-    return NextResponse.redirect(new URL("/dashboard/api-connections?spreaker=app-not-configured", request.url));
-  }
+  const { data: stored, error: storedError } = await supabase.rpc("get_integration_credential", { p_provider: "spreaker" });
+  const row = Array.isArray(stored) ? stored[0] : stored;
+  if (storedError || !row) return NextResponse.redirect(new URL("/dashboard/api-connections?spreaker=app-credentials-missing", request.url));
+  let app: { client_id?: string; client_secret?: string };
+  try { app = JSON.parse(decryptCredential(row)); }
+  catch { return NextResponse.redirect(new URL("/dashboard/api-connections?spreaker=app-credentials-missing", request.url)); }
+  const clientId = app.client_id;
+  const clientSecret = app.client_secret;
+  if (!clientId || !clientSecret) return NextResponse.redirect(new URL("/dashboard/api-connections?spreaker=app-credentials-missing", request.url));
 
   const redirectUri = process.env.SPREAKER_REDIRECT_URI
     || new URL("/api/integrations/spreaker/callback", request.url).toString();
