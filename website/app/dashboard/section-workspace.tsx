@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -66,7 +66,7 @@ export default function SectionWorkspace({ section }: { section: Section }) {
 }
 
 function ConfigurationForm({ section }: { section: "podcast-settings" | "ai-configuration" | "audio-settings" | "publishing-schedule" }) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [form, setForm] = useState<WorkspaceSettings>(defaultSettings);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -153,7 +153,7 @@ function ConfigurationForm({ section }: { section: "podcast-settings" | "ai-conf
 }
 
 function EpisodesList() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [episodes, setEpisodes] = useState<Array<{ id: string; title: string; status: string; created_at: string; published_at: string | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -179,7 +179,7 @@ function EpisodesList() {
 }
 
 function SubscriptionPanel() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [plan, setPlan] = useState("free");
   const [limit, setLimit] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -199,7 +199,7 @@ function SubscriptionPanel() {
 }
 
 function WorkspaceProfile() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [name, setName] = useState("My Podcast Workspace");
   const [timezone, setTimezone] = useState("Africa/Nairobi");
   const [loading, setLoading] = useState(true);
