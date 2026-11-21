@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
   authorize.searchParams.set("redirect_uri", redirectUri);
 
   const response = NextResponse.redirect(authorize);
-  response.cookies.set("spreaker_oauth_state", state, {
+  // Bind the OAuth state cookie to the account that initiated this connection.
+  response.cookies.set("spreaker_oauth_state", `${user.id}.${state}`, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
