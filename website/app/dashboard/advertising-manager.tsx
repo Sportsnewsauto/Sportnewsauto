@@ -3,12 +3,12 @@
 import { useMemo, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type Slot = { id?: string; position_seconds: number; label: string; enabled: boolean };
+type Slot = { id?: string; position_seconds: number; ads_max_count: number; label: string; enabled: boolean };
 const starterSlots: Slot[] = [
-  { position_seconds: 30, label: "Ad break at 30 seconds", enabled: true },
-  { position_seconds: 60, label: "Ad break at 1 minute", enabled: true },
-  { position_seconds: 120, label: "Ad break at 2 minutes", enabled: true },
-  { position_seconds: 180, label: "Ad break at 3 minutes", enabled: true },
+  { position_seconds: 30, ads_max_count: 4, label: "Ad break at 30 seconds", enabled: true },
+  { position_seconds: 60, ads_max_count: 4, label: "Ad break at 1 minute", enabled: true },
+  { position_seconds: 120, ads_max_count: 4, label: "Ad break at 2 minutes", enabled: true },
+  { position_seconds: 180, ads_max_count: 4, label: "Ad break at 3 minutes", enabled: true },
 ];
 
 export default function AdvertisingManager() {
@@ -20,7 +20,7 @@ export default function AdvertisingManager() {
   const [error, setError] = useState("");
 
   async function load() {
-    const { data, error } = await supabase.from("ad_slots").select("id,position_seconds,label,enabled").order("position_seconds");
+    const { data, error } = await supabase.from("ad_slots").select("id,position_seconds,ads_max_count,label,enabled").order("position_seconds");
     if (error) setError("Advertising storage is not ready. Apply Supabase migration 0002, then refresh.");
     else setSlots(data ?? []);
     setLoading(false);
@@ -45,7 +45,7 @@ export default function AdvertisingManager() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setError("Please sign in again."); setSaving(false); return; }
     const { error } = await supabase.from("ad_slots").upsert(
-      slots.map(slot => ({ owner_id: user.id, position_seconds: slot.position_seconds, label: slot.label, enabled: slot.enabled, updated_at: new Date().toISOString() })),
+      slots.map(slot => ({ owner_id: user.id, position_seconds: slot.position_seconds, ads_max_count: slot.ads_max_count, label: slot.label, enabled: slot.enabled, updated_at: new Date().toISOString() })),
       { onConflict: "owner_id,position_seconds" },
     );
     if (error) setError(error.message); else setNotice("Advertising positions saved.");
@@ -65,6 +65,7 @@ export default function AdvertisingManager() {
         <div className="slot-list">{slots.map((slot, index) => <div className="slot-row" key={slot.id ?? slot.position_seconds}>
           <label>Position (seconds)<input type="number" min={1} max={7200} value={slot.position_seconds} onChange={e => update(index, { position_seconds: Number(e.target.value) })} /></label>
           <label>Label<input value={slot.label} onChange={e => update(index, { label: e.target.value })} /></label>
+          <label>Maximum ads (1–4)<input type="number" min={1} max={4} value={slot.ads_max_count} onChange={e => update(index, { ads_max_count: Number(e.target.value) })} /></label>
           <label className="check-label"><input type="checkbox" checked={slot.enabled} onChange={e => update(index, { enabled: e.target.checked })} /> Enabled</label>
         </div>)}
         <button className="btn btn-primary" disabled={saving} onClick={() => void save()}>{saving ? "Saving…" : "Save ad positions"}</button></div>}
