@@ -22,7 +22,7 @@ export default function IntegrationManager() {
   const [secrets, setSecrets] = useState<Record<Provider, string>>({ spreaker: "", groq: "", gemini: "" });
   const [spreakerClientId, setSpreakerClientId] = useState("");
   const [spreakerClientSecret, setSpreakerClientSecret] = useState("");
-  const [spreakerCallbackUrl, setSpreakerCallbackUrl] = useState("");
+  const [spreakerAccessToken, setSpreakerAccessToken] = useState("");
   const [busy, setBusy] = useState<Provider | "loading" | null>("loading");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -53,7 +53,6 @@ export default function IntegrationManager() {
   }
   useEffect(() => {
     void load();
-    setSpreakerCallbackUrl(`${window.location.origin}/api/integrations/spreaker/callback`);
     const result = new URLSearchParams(window.location.search).get("spreaker");
     const messages: Record<string, string> = {
       connected: "Spreaker account connected successfully. Choose your show below.",
@@ -100,11 +99,11 @@ export default function IntegrationManager() {
       const response = await fetch("/api/integrations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: "spreaker", action: "save-app", clientId: spreakerClientId, clientSecret: spreakerClientSecret }),
+        body: JSON.stringify({ provider: "spreaker", action: "save-app", clientId: spreakerClientId, clientSecret: spreakerClientSecret, accessToken: spreakerAccessToken }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not save your Spreaker application credentials.");
-      setSpreakerClientId(""); setSpreakerClientSecret("");
+      setSpreakerClientId(""); setSpreakerClientSecret(""); setSpreakerAccessToken("");
       setNotice(data.message || "Your Spreaker application credentials were saved securely.");
       await load();
     } catch (cause) {
@@ -167,13 +166,12 @@ export default function IntegrationManager() {
     <div className="integration-security"><strong>Encrypted credential storage</strong><p>Credentials are encrypted on the server with AES-256-GCM. The secret value is never returned to the browser. Saved credentials can be tested against each provider; the secret itself is never returned to the browser.</p></div>
     <div className="integration-security">
       <strong>Your own Spreaker Developer App</strong>
-      <p>Every customer uses their own Spreaker Client ID and Client Secret. These are encrypted and saved only to this signed-in account. After you click “Authorize my Spreaker account” and approve access on Spreaker, this website automatically receives and securely stores your access token and refresh token. Do not paste an access token here. In your Spreaker Developer App, register this callback URL:</p>
-      <p className="integration-saved"><strong>{spreakerCallbackUrl || "Loading callback URL…"}</strong></p>
+      <p>Enter the Spreaker Client ID, Client Secret, and Access Token belonging to this customer’s own Spreaker account. The website verifies the access token with Spreaker, then encrypts and stores all three credentials for the signed-in customer only. This direct-token connection does not use an OAuth callback URL.</p>
       <label>Spreaker Client ID<input type="text" autoComplete="off" value={spreakerClientId} onChange={e => setSpreakerClientId(e.target.value)} placeholder="Enter your Spreaker Client ID" /></label>
       <label>Spreaker Client Secret<input type="password" autoComplete="new-password" value={spreakerClientSecret} onChange={e => setSpreakerClientSecret(e.target.value)} placeholder="Enter your Spreaker Client Secret" /></label>
+      <label>Spreaker Access Token<input type="password" autoComplete="off" value={spreakerAccessToken} onChange={e => setSpreakerAccessToken(e.target.value)} placeholder="Paste your Spreaker Access Token" /></label>
       <div className="integration-actions">
-        <button className="btn btn-primary" disabled={busy !== null || !spreakerClientId.trim() || !spreakerClientSecret.trim()} onClick={() => void saveSpreakerApp()}>{busy === "spreaker" ? "Saving…" : "Save my Spreaker app securely"}</button>
-        <a className="btn btn-outline" href="/api/integrations/spreaker/connect">Authorize my Spreaker account</a>
+        <button className="btn btn-primary" disabled={busy !== null || !spreakerClientId.trim() || !spreakerClientSecret.trim() || !spreakerAccessToken.trim()} onClick={() => void saveSpreakerApp()}>{busy === "spreaker" ? "Verifying…" : "Verify and save Spreaker credentials"}</button>
         {connectionFor("spreaker") && <button className="btn btn-outline" disabled={busy !== null} onClick={() => void remove("spreaker")}>Remove Spreaker connection</button>}
       </div>
       {connectionFor("spreaker") && <p className="integration-saved">Spreaker setup: <strong>{connectionFor("spreaker")?.status === "connected" ? "Account connected" : "App credentials saved"}</strong>{connectionFor("spreaker")?.status === "connected" && <> · Access token stored securely (•••• {connectionFor("spreaker")?.masked_suffix})</>}</p>}
