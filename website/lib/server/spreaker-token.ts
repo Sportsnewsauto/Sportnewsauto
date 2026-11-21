@@ -4,6 +4,8 @@ import { decryptCredential, encryptCredential } from "@/lib/server/credential-va
 type SupabaseServer = Awaited<ReturnType<typeof createClient>>;
 
 type SpreakerTokenBundle = {
+  client_id?: string;
+  client_secret?: string;
   access_token: string;
   refresh_token?: string;
   token_type?: string;
@@ -59,8 +61,8 @@ export async function getUsableSpreakerAccessToken(supabase: SupabaseServer): Pr
   const expiresSoon = typeof bundle.expires_at === "number" && bundle.expires_at <= Math.floor(Date.now() / 1000) + 120;
   if (!expiresSoon) return bundle.access_token;
 
-  const clientId = process.env.SPREAKER_CLIENT_ID;
-  const clientSecret = process.env.SPREAKER_CLIENT_SECRET;
+  const clientId = bundle.client_id;
+  const clientSecret = bundle.client_secret;
   if (!bundle.refresh_token || !clientId || !clientSecret) {
     throw new Error("The Spreaker access token has expired. Reconnect Spreaker to continue.");
   }
@@ -84,6 +86,8 @@ export async function getUsableSpreakerAccessToken(supabase: SupabaseServer): Pr
 
   const expiresIn = Number(tokens.expires_in);
   bundle = {
+    client_id: clientId,
+    client_secret: clientSecret,
     access_token: tokens.access_token,
     refresh_token: typeof tokens.refresh_token === "string" ? tokens.refresh_token : bundle.refresh_token,
     token_type: typeof tokens.token_type === "string" ? tokens.token_type : bundle.token_type ?? "Bearer",
