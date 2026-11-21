@@ -192,7 +192,7 @@ export default function IntegrationManager() {
       </div>;
     })}
     {connectionFor("spreaker")?.status === "connected" && <div className="integration-card spreaker-show-picker">
-      <div><h2>Choose your Spreaker show</h2><p>Select the show where this workspace will publish. The website retrieves your editable shows from the connected Spreaker account and saves the chosen Show ID automatically. You do not need to type the ID manually.</p></div>
+      <div><h2>Set your Spreaker show</h2><p>Select a show from the list or enter its Show ID manually. The website checks that your connected Spreaker account can edit that show before saving it.</p></div>
       {shows.length > 0 && <label>Choose from your editable Spreaker shows<select value={shows.some(show => show.show_id === selectedShow) ? selectedShow : ""} onChange={e => setSelectedShow(e.target.value)}>
         <option value="">Choose a show…</option>
         {shows.map(show => <option key={show.show_id} value={show.show_id}>{show.title} (ID {show.show_id})</option>)}
