@@ -20,6 +20,7 @@ type WorkspaceSettings = {
   tts_provider: "kokoro";
   tts_voice: string;
   publishing_mode: "automatic" | "review";
+  automation_enabled: boolean;
   scheduled_times: string[];
 };
 
@@ -37,6 +38,7 @@ const defaultSettings: WorkspaceSettings = {
   tts_provider: "kokoro",
   tts_voice: "af_heart",
   publishing_mode: "automatic",
+  automation_enabled: false,
   scheduled_times: ["00:00", "03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00"],
 };
 
@@ -139,10 +141,11 @@ function ConfigurationForm({ section }: { section: "podcast-settings" | "ai-conf
           <p className="microcopy">Voice selection is saved here. The audio-generation worker must be connected before this setting affects published episodes.</p>
         </>}
         {section === "publishing-schedule" && <>
+          <label className="automation-toggle"><span><strong>Enable scheduled episode generation</strong><small>Leave this off until your Spreaker, AI and sports feed connections are ready.</small></span><input type="checkbox" checked={form.automation_enabled} onChange={e => update("automation_enabled", e.target.checked)} /></label>
           <label>Publishing mode<select value={form.publishing_mode} onChange={e => update("publishing_mode", e.target.value as "automatic" | "review")}><option value="automatic">Automatic publishing</option><option value="review">Review before publishing</option></select></label>
           <label>Timezone<input required value={form.timezone} onChange={e => update("timezone", e.target.value)} /></label>
           <label>Scheduled times (one HH:MM time per line)<textarea rows={8} value={form.scheduled_times.join("\n")} onChange={e => update("scheduled_times", e.target.value.split(/[\n,]+/).map(x => x.trim()).filter(Boolean))} /></label>
-          <p className="microcopy">Default times are evenly spaced every three hours. Your free plan still allows one published episode per day. Saving this schedule does not start a worker or bypass the plan limit.</p>
+          <p className="microcopy">Default times are evenly spaced every three hours. The separate worker checks this schedule and enforces your daily episode allowance. Scheduled generation remains off until you enable it above.</p>
         </>}
         {error && <Notice error>{error}</Notice>}
         {notice && <Notice>{notice}</Notice>}
