@@ -83,9 +83,37 @@ export async function POST(request: NextRequest) {
 
   let body: unknown;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
-  const input = body as { provider?: unknown; secret?: unknown; action?: unknown };
+  const input = body as { provider?: unknown; secret?: unknown; action?: unknown; clientId?: unknown; clientSecret?: unknown };
   if (!isProvider(input?.provider)) {
     return NextResponse.json({ error: "Choose a valid provider." }, { status: 400 });
+  }
+
+  if (input.provider === "spreaker" && input.action === "save-app") {
+    const clientId = typeof input.clientId === "string" ? input.clientId.trim() : "";
+    const clientSecret = typeof input.clientSecret === "string" ? input.clientSecret.trim() : "";
+    if (clientId.length < 3 || clientId.length > 512 || clientSecret.length < 8 || clientSecret.length > 4096 || /[\\r\\n]/.test(clientId + clientSecret)) {
+      return NextResponse.json({ error: "Enter a valid Spreaker Client ID and Client Secret." }, { status: 400 });
+    }
+    let encrypted;
+    try { encrypted = encryptCredential(JSON.stringify({ client_id: clientId, client_secret: clientSecret })); }
+    catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Credential vault is not configured.";
+      return NextResponse.json({ error: message }, { status: 503 });
+    }
+    const { error: saveError } = await supabase.rpc("save_integration_credential", {
+      p_provider: "spreaker",
+      p_ciphertext: encrypted.ciphertext,
+      p_iv: encrypted.iv,
+      p_auth_tag: encrypted.auth_tag,
+      p_key_version: encrypted.key_version,
+    });
+    if (saveError) return NextResponse.json({ error: "Could not securely save your Spreaker app credentials." }, { status: 503 });
+    const { error: statusError } = await supabase.from("integration_connections").upsert({
+      owner_id: user.id, provider: "spreaker", status: "saved_unverified",
+      masked_suffix: clientId.slice(-4), updated_at: new Date().toISOString(),
+    }, { onConflict: "owner_id,provider" });
+    if (statusError) return NextResponse.json({ error: "App credentials saved, but connection status could not be updated." }, { status: 503 });
+    return NextResponse.json({ success: true, message: "Your Spreaker Client ID and Client Secret are encrypted and saved to your account." }, { status: 201 });
   }
 
   if (input.action === "verify") {
