@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { decryptCredential, encryptCredential } from "@/lib/server/credential-vault";
+import { getUsableSpreakerAccessToken } from "@/lib/server/spreaker-token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
     if (!row) return NextResponse.json({ error: "Save and verify your Spreaker credential first." }, { status: 404 });
 
     let token: string;
-    try { token = decryptCredential(row); }
+    try { token = await getUsableSpreakerAccessToken(supabase); }
     catch (cause) {
       const message = cause instanceof Error ? cause.message : "Could not decrypt the Spreaker credential.";
       return NextResponse.json({ error: message }, { status: 503 });
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
     if (!row) return NextResponse.json({ error: "Save a credential for this provider first." }, { status: 404 });
 
     let secret: string;
-    try { secret = decryptCredential(row); }
+    try { secret = input.provider === "spreaker" ? await getUsableSpreakerAccessToken(supabase) : decryptCredential(row); }
     catch (cause) {
       const message = cause instanceof Error ? cause.message : "Could not decrypt this credential.";
       return NextResponse.json({ error: message }, { status: 503 });
