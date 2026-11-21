@@ -1,0 +1,30 @@
+name: Podcast Worker CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tenant_worker.py"
+      - "upload_spreaker.py"
+      - ".github/workflows/multi-tenant-podcast-worker.yml"
+      - ".github/workflows/podcast-worker-ci.yml"
+  pull_request:
+    paths:
+      - "tenant_worker.py"
+      - "upload_spreaker.py"
+      - ".github/workflows/multi-tenant-podcast-worker.yml"
+      - ".github/workflows/podcast-worker-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  python-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile worker and upload scripts
+        run: python -m py_compile tenant_worker.py upload_spreaker.py
