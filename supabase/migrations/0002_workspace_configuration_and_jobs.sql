@@ -9,6 +9,7 @@ create table if not exists public.workspace_settings (
   category text not null default 'Sports',
   language text not null default 'en',
   country text not null default 'KE',
+  spreaker_show_id text not null default '',
   timezone text not null default 'Africa/Nairobi',
   ai_provider text not null default 'groq' check (ai_provider in ('groq', 'gemini')),
   ai_model text not null default 'openai/gpt-oss-120b',
