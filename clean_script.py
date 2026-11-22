@@ -27,8 +27,11 @@ def main():
             config = json.load(file)
 
     minimum_required = int(config.get("minimum_narration_characters", MINIMUM_NARRATION_CHARACTERS))
-    if not 5000 <= minimum_required <= 50000:
-        raise ValueError("minimum_narration_characters must be between 5000 and 50000.")
+    maximum_allowed = int(config.get("maximum_narration_characters", 50000))
+    if not 5000 <= maximum_allowed <= 50000:
+        raise ValueError("maximum_narration_characters must be between 5000 and 50000.")
+    if not 5000 <= minimum_required <= maximum_allowed:
+        raise ValueError("minimum_narration_characters must be between 5000 and the plan maximum.")
 
     script_text = SCRIPT_FILE.read_text(encoding="utf-8")
 
@@ -118,10 +121,22 @@ def main():
         )
 
     actual_length = len(narration_text)
+    if actual_length > maximum_allowed:
+        sentence_end = narration_text.rfind(". ", 0, maximum_allowed)
+        if sentence_end >= int(maximum_allowed * 0.75):
+            narration_text = narration_text[:sentence_end + 1].rstrip()
+        else:
+            word_end = narration_text.rfind(" ", 0, maximum_allowed + 1)
+            if word_end <= 0:
+                raise RuntimeError("Could not safely fit narration within the plan character limit.")
+            narration_text = narration_text[:word_end].rstrip()
+        actual_length = len(narration_text)
+        print(f"Trimmed narration to the plan maximum of {maximum_allowed} characters.", flush=True)
 
     print(f"Sections found: {len(sections)}", flush=True)
     print(f"Narration characters: {actual_length}", flush=True)
     print(f"Minimum required: {minimum_required}", flush=True)
+    print(f"Maximum allowed: {maximum_allowed}", flush=True)
 
     if actual_length < minimum_required:
         raise RuntimeError(
