@@ -8,13 +8,26 @@ const API_BASE_URL = "https://f4bexperience.flutterwave.com";
 type TokenResponse = {
   access_token?: string;
   expires_in?: number;
+  error?: string;
+  error_description?: string;
 };
 
 type ApiEnvelope<T> = {
   status?: string;
   message?: string;
+  error?: { code?: string; message?: string } | string;
   data?: T;
 };
+
+function safeProviderMessage(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) return "";
+  return value
+    .replace(/[\\r\\n\\t]+/g, " ")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi, "[email]")
+    .replace(/(?:Bearer\\s+)\\S+/gi, "Bearer [redacted]")
+    .replace(/\\b(?:254|0)?[17]\\d{8}\\b/g, "[phone]")
+    .slice(0, 180);
+}
 
 type FlutterwaveCharge = {
   id: string;
@@ -88,7 +101,10 @@ async function getAccessToken(forceRefresh = false): Promise<string> {
   if (!response.ok || typeof result.access_token !== "string" || !result.access_token) {
     cachedAccessToken = "";
     cachedAccessTokenExpiresAt = 0;
-    throw new Error("Flutterwave V4 authentication failed. Check the live Client ID and Client Secret.");
+    const reason = safeProviderMessage(result.error_description || result.error);
+    throw new Error(
+      `Flutterwave OAuth authentication failed (HTTP ${response.status})${reason ? `: ${reason}` : ". Check the live Client ID and Client Secret."}`,
+    );
   }
 
   cachedAccessToken = result.access_token;
@@ -130,7 +146,14 @@ export async function flutterwaveV4Request<T>(
       continue;
     }
     if (!response.ok || result.status === "failed") {
-      throw new Error(`Flutterwave V4 request failed (HTTP ${response.status}).`);
+      const errorObject = typeof result.error === "object" && result.error !== null ? result.error : null;
+      const code = errorObject?.code;
+      const message = safeProviderMessage(
+        errorObject?.message || (typeof result.error === "string" ? result.error : result.message),
+      );
+      throw new Error(
+        `Flutterwave API rejected the request (HTTP ${response.status}${code ? `, code ${safeProviderMessage(code)}` : ""})${message ? `: ${message}` : "."}`,
+      );
     }
     return result;
   }
