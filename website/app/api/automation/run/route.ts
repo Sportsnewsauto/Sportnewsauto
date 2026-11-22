@@ -12,7 +12,7 @@ export async function GET() {
     return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
 
-  const [jobResult, episodeResult] = await Promise.all([
+  const [jobResult, manualCountResult, workspaceResult] = await Promise.all([
     supabase
       .from("publishing_jobs")
       .select("id,status,created_at,updated_at,payload")
@@ -23,22 +23,42 @@ export async function GET() {
       .limit(1)
       .maybeSingle(),
     supabase
-      .from("episodes")
+      .from("publishing_jobs")
       .select("id", { count: "exact", head: true })
       .eq("owner_id", user.id)
-      .in("status", ["draft", "queued", "processing", "ready", "published"]),
+      .eq("job_type", "generate_episode")
+      .filter("payload->>source", "eq", "manual")
+      .neq("status", "cancelled"),
+    supabase
+      .from("workspaces")
+      .select("plan,subscription_status,subscription_expires_at")
+      .eq("owner_id", user.id)
+      .maybeSingle(),
   ]);
 
-  if (jobResult.error || episodeResult.error) {
+  if (jobResult.error || manualCountResult.error || workspaceResult.error || !workspaceResult.data) {
     return NextResponse.json({ error: "Could not load your automation status. Refresh the dashboard." }, { status: 503 });
   }
 
+  const workspace = workspaceResult.data;
+  const expiry = workspace.subscription_expires_at ? Date.parse(workspace.subscription_expires_at) : 0;
+  const isAdmin = workspace.plan === "admin";
+  const isPaid = isAdmin || (
+    ["pro", "business"].includes(workspace.plan) &&
+    workspace.subscription_status === "active" &&
+    expiry > Date.now()
+  );
+  const used = manualCountResult.count ?? 0;
   const payload = jobResult.data?.payload && typeof jobResult.data.payload === "object"
     ? jobResult.data.payload as Record<string, unknown>
     : {};
 
   return NextResponse.json({
-    trial_available: (episodeResult.count ?? 0) === 0,
+    is_paid: isPaid,
+    manual_runs_used: used,
+    manual_runs_limit: isPaid ? null : 3,
+    manual_runs_remaining: isPaid ? null : Math.max(0, 3 - used),
+    trial_available: !isPaid && used < 3,
     job: jobResult.data ? {
       id: jobResult.data.id,
       status: jobResult.data.status,
