@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time as time_module
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -59,6 +60,9 @@ class SupabaseTransientError(RuntimeError):
 
 
 class SupabaseRest:
+    RETRYABLE_METHODS = {"GET", "PATCH", "DELETE"}
+    RETRYABLE_STATUSES = {408, 425, 429, 500, 502, 503, 504}
+
     def __init__(self) -> None:
         self.base = f"{SUPABASE_URL}/rest/v1"
         self.session = requests.Session()
@@ -73,28 +77,66 @@ class SupabaseRest:
             self.session.headers["Authorization"] = f"Bearer {SUPABASE_SECRET_KEY}"
 
     def request(self, method: str, table: str, *, params=None, body=None, prefer=None):
+        method = method.upper()
         headers = {}
         if prefer:
             headers["Prefer"] = prefer
-        response = self.session.request(
-            method,
-            f"{self.base}/{table}",
-            params=params,
-            json=body,
-            headers=headers,
-            timeout=(20, 120),
-        )
-        if not response.ok:
-            raise RuntimeError(
-                f"Supabase {method} {table} failed with HTTP {response.status_code}: "
-                f"{response.text[:1200]}"
-            )
-        if not response.text:
-            return []
-        try:
-            return response.json()
-        except ValueError:
-            return []
+        retry_safe = method in self.RETRYABLE_METHODS
+
+        for attempt in range(4):
+            try:
+                response = self.session.request(
+                    method,
+                    f"{self.base}/{table}",
+                    params=params,
+                    json=body,
+                    headers=headers,
+                    timeout=(20, 120),
+                )
+            except requests.exceptions.RequestException:
+                if not retry_safe or attempt == 3:
+                    raise
+                delay = min(2 ** attempt, 8)
+                print(
+                    f"Supabase {method} {table} timed out; retrying in {delay}s "
+                    f"(attempt {attempt + 2}/4).",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                time_module.sleep(delay)
+                continue
+
+            if retry_safe and response.status_code in self.RETRYABLE_STATUSES and attempt < 3:
+                retry_after = response.headers.get("Retry-After")
+                try:
+                    delay = min(max(int(retry_after), 1), 15) if retry_after else min(2 ** attempt, 8)
+                except ValueError:
+                    delay = min(2 ** attempt, 8)
+                print(
+                    f"Supabase {method} {table} returned HTTP {response.status_code}; "
+                    f"retrying in {delay}s (attempt {attempt + 2}/4).",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                time_module.sleep(delay)
+                continue
+
+            if not response.ok:
+                message = (
+                    f"Supabase {method} {table} failed with HTTP {response.status_code}: "
+                    f"{response.text[:1200]}"
+                )
+                if response.status_code in self.RETRYABLE_STATUSES:
+                    raise SupabaseTransientError(message)
+                raise RuntimeError(message)
+            if not response.text:
+                return []
+            try:
+                return response.json()
+            except ValueError:
+                return []
+
+        raise RuntimeError(f"Supabase {method} {table} failed after retry attempts.")
 
     def select(self, table: str, **params):
         return self.request("GET", table, params=params)
@@ -344,10 +386,77 @@ def workspace_ad_slots(db: SupabaseRest, owner_id: str) -> list[dict[str, int]]:
 
 
 def mark_job(db: SupabaseRest, job_id: str, status: str, error: str | None = None):
-    patch = {"status": status, "updated_at": iso_utc(now_utc())}
-    if error:
-        patch["last_error"] = error[:2000]
+    patch = {"status": status, "updated_at": iso_utc(now_utc()), "last_error": error[:2000] if error else None}
     db.patch("publishing_jobs", {"id": f"eq.{job_id}"}, patch)
+
+
+def find_episode_for_worker_job(db: SupabaseRest, owner_id: str, job_id: str):
+    return db.select(
+        "episodes",
+        select="id,spreaker_episode_id",
+        owner_id=f"eq.{owner_id}",
+        **{"source_data->>worker_job_id": f"eq.{job_id}"},
+        limit="1",
+    )
+
+
+def save_worker_episode(db: SupabaseRest, episode: dict[str, Any], job_id: str) -> None:
+    """Idempotently save an episode and resolve ambiguous POST timeouts by job ID."""
+    owner_id = episode["owner_id"]
+    for attempt in range(4):
+        existing = find_episode_for_worker_job(db, owner_id, job_id)
+        if existing:
+            db.patch(
+                "episodes",
+                {"id": f"eq.{existing[0]['id']}", "owner_id": f"eq.{owner_id}"},
+                {key: value for key, value in episode.items() if key != "owner_id"},
+            )
+            return
+
+        try:
+            db.insert("episodes", episode)
+            return
+        except (requests.exceptions.RequestException, SupabaseTransientError):
+            # A response timeout can happen after Postgres committed the row.
+            # Always check by job ID before repeating the insert.
+            existing = find_episode_for_worker_job(db, owner_id, job_id)
+            if existing:
+                db.patch(
+                    "episodes",
+                    {"id": f"eq.{existing[0]['id']}", "owner_id": f"eq.{owner_id}"},
+                    {key: value for key, value in episode.items() if key != "owner_id"},
+                )
+                return
+            if attempt == 3:
+                raise
+            delay = min(2 ** attempt, 8)
+            print(
+                f"Episode save response was uncertain; no row is visible yet. "
+                f"Retrying safely in {delay}s.",
+                file=sys.stderr,
+                flush=True,
+            )
+            time_module.sleep(delay)
+
+
+def checkpoint_published_episode(
+    db: SupabaseRest,
+    job_id: str,
+    job_payload: dict[str, Any],
+    episode: dict[str, Any],
+) -> dict[str, Any]:
+    """Persist the confirmed Spreaker result before writing the Episodes row."""
+    payload = dict(job_payload or {})
+    payload.update({
+        "worker_stage": "spreaker_published" if episode["status"] == "published" else "spreaker_review_ready",
+        "recovery_episode": episode,
+    })
+    db.patch(
+        "publishing_jobs",
+        {"id": f"eq.{job_id}"},
+        {"payload": payload, "updated_at": iso_utc(now_utc())},
+    )
+    return payload
 
 
 def create_schedule_job(db: SupabaseRest, owner_id: str, slot: datetime) -> None:
