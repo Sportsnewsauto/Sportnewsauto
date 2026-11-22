@@ -191,15 +191,6 @@ export default function IntegrationManager() {
             </a>
           </div>
         </div>
-        <div className="spreaker-setup-step">
-          <span className="spreaker-step-number">02</span>
-          <div>
-            <strong>Create your developer app</strong>
-            <p>Open your developer area and get the Client ID, Client Secret and an Access Token for your Spreaker account.</p>
-            <a href="https://developers.spreaker.com/guides/authentication/" target="_blank" rel="noopener noreferrer">
-              Read Spreaker's authentication guide ↗
-            </a>
-          </div>
         </div>
       </div>
 
