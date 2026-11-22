@@ -45,11 +45,13 @@ def main():
     upload_status = upload.get("status")
     upload_details = upload.get("details", {})
 
-    # Only mark a story covered when Spreaker confirms that its
-    # audio was uploaded to the draft.
-    if upload_status != "draft_audio_uploaded":
+    # Spreaker reports "published" after the uploaded draft is made public.
+    # A published episode is also confirmed audio upload and must be recorded
+    # in history; otherwise the legacy workflow can publish the same story
+    # again on its next manual run.
+    if upload_status not in {"draft_audio_uploaded", "published"}:
         raise RuntimeError(
-            "Spreaker has not confirmed an audio upload. "
+            "Spreaker has not confirmed a completed audio upload. "
             f"Current upload status: {upload_status!r}. "
             "The story will not be added to history."
         )
