@@ -168,9 +168,6 @@ export async function POST(request: Request) {
 
   // The signed-in workspace is already verified as Admin above. Preserve its protected plan and allowance.
 
-  return NextResponse.json({ error: "The automation was imported, but the Admin eight-episode allowance could not be assigned. Apply Supabase migration 0005 and try the import again." }, { status: 503 });
-  }
-
   return NextResponse.json({
     success: true,
     imported: {
