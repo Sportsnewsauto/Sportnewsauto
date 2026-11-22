@@ -8,6 +8,8 @@ on:
       - "upload_spreaker.py"
       - "generate_script.py"
       - "generate_metadata.py"
+      - "record_covered_story.py"
+      - "test_record_covered_story.py"
       - ".github/workflows/multi-tenant-podcast-worker.yml"
       - ".github/workflows/podcast-worker-ci.yml"
   pull_request:
@@ -31,6 +33,6 @@ jobs:
       - name: Install worker test dependencies
         run: python -m pip install requests cryptography
       - name: Compile worker and upload scripts
-        run: python -m py_compile tenant_worker.py upload_spreaker.py generate_script.py generate_metadata.py
+        run: python -m py_compile tenant_worker.py upload_spreaker.py generate_script.py generate_metadata.py record_covered_story.py
       - name: Test customer credential isolation
-        run: python -m unittest -v test_tenant_credentials.py
+        run: python -m unittest -v test_tenant_credentials.py test_record_covered_story.py
