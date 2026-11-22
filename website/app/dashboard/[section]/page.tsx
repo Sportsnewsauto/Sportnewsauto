@@ -6,7 +6,7 @@ import FeedsManager from "../feeds-manager";
 import AdvertisingManager from "../advertising-manager";
 
 const supportedSections = new Set([
-  "api-connections", "podcast-settings", "sports-news-feeds",
+  "api-connections", "sports-news-feeds",
   "ai-configuration", "audio-settings", "advertising",
   "publishing-schedule", "episodes", "subscription", "support", "settings",
 ]);
@@ -28,5 +28,5 @@ export default async function DashboardSectionPage({ params }: { params: Promise
   if (section === "sports-news-feeds") return <FeedsManager />;
   if (section === "advertising") return <AdvertisingManager />;
 
-  return <SectionWorkspace section={section as "podcast-settings" | "ai-configuration" | "audio-settings" | "publishing-schedule" | "episodes" | "subscription" | "support" | "settings"} />;
+  return <SectionWorkspace section={section as "ai-configuration" | "audio-settings" | "publishing-schedule" | "episodes" | "subscription" | "support" | "settings"} />;
 }

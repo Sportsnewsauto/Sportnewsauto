@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-type Section = "podcast-settings" | "ai-configuration" | "audio-settings" | "publishing-schedule" | "episodes" | "subscription" | "support" | "settings";
+type Section = "ai-configuration" | "audio-settings" | "publishing-schedule" | "episodes" | "subscription" | "support" | "settings";
 
 type WorkspaceSettings = {
   podcast_name: string;
@@ -43,7 +43,6 @@ const defaultSettings: WorkspaceSettings = {
 };
 
 const sectionInfo: Record<Section, { title: string; intro: string }> = {
-  "podcast-settings": { title: "Podcast Settings", intro: "Set the public identity and default details for your podcast." },
   "ai-configuration": { title: "AI Configuration", intro: "Choose the AI provider and set how episode scripts should be written." },
   "audio-settings": { title: "Audio Settings", intro: "Choose the platform-provided Kokoro voice used for narration." },
   "publishing-schedule": { title: "Publishing Schedule", intro: "Choose when episodes should be prepared and whether they publish automatically or wait for approval." },
@@ -58,7 +57,7 @@ function Notice({ children, error = false }: { children: React.ReactNode; error?
 }
 
 export default function SectionWorkspace({ section }: { section: Section }) {
-  if (section === "podcast-settings" || section === "ai-configuration" || section === "audio-settings" || section === "publishing-schedule") {
+  if (section === "ai-configuration" || section === "audio-settings" || section === "publishing-schedule") {
     return <ConfigurationForm section={section} />;
   }
   if (section === "episodes") return <EpisodesList />;
@@ -67,7 +66,7 @@ export default function SectionWorkspace({ section }: { section: Section }) {
   return <SupportPanel />;
 }
 
-function ConfigurationForm({ section }: { section: "podcast-settings" | "ai-configuration" | "audio-settings" | "publishing-schedule" }) {
+function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-settings" | "publishing-schedule" }) {
   const supabase = useMemo(() => createClient(), []);
   const [form, setForm] = useState<WorkspaceSettings>(defaultSettings);
   const [loading, setLoading] = useState(true);
@@ -119,16 +118,6 @@ function ConfigurationForm({ section }: { section: "podcast-settings" | "ai-conf
     <section className="dash-main">
       <div className="dash-top"><div><p className="section-kicker">WORKSPACE</p><h1>{info.title}</h1><p>{info.intro}</p></div><span className="pill">Configuration</span></div>
       <form className="panel section-form" onSubmit={save}>
-        {section === "podcast-settings" && <>
-          <label>Podcast name<input required maxLength={120} value={form.podcast_name} onChange={e => update("podcast_name", e.target.value)} /></label>
-          <label>Podcast description<textarea rows={4} maxLength={2000} value={form.podcast_description} onChange={e => update("podcast_description", e.target.value)} placeholder="Describe your sports podcast…" /></label>
-          <div className="form-grid">
-            <label>Category<input value={form.category} onChange={e => update("category", e.target.value)} /></label>
-            <label>Language<select value={form.language} onChange={e => update("language", e.target.value)}><option value="en">English</option><option value="sw">Swahili</option></select></label>
-            <label>Country<input value={form.country} onChange={e => update("country", e.target.value.toUpperCase())} maxLength={2} /></label>
-            <label>Timezone<input value={form.timezone} onChange={e => update("timezone", e.target.value)} /></label>
-          </div>
-        </>}
         {section === "ai-configuration" && <>
           <label>AI provider<select value={form.ai_provider} onChange={e => { const value = e.target.value as "groq" | "gemini"; update("ai_provider", value); update("ai_model", value === "groq" ? "openai/gpt-oss-120b" : "gemini-3.5-flash-lite"); }}><option value="groq">Groq</option><option value="gemini">Google Gemini</option></select></label>
           <label>Model identifier<input required value={form.ai_model} onChange={e => update("ai_model", e.target.value)} /></label>
