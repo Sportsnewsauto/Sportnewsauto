@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 function normalizeKenyanPhone(value: unknown): string | null {
   if (typeof value !== "string" || !value.trim()) return null;
   const digits = value.replace(/[\s()+-]/g, "");
-  if (/^0[17]\d{8}$/.test(digits)) return \`254\${digits.slice(1)}\`;
+  if (/^0[17]\d{8}$/.test(digits)) return `254${digits.slice(1)}`;
   if (/^254[17]\d{8}$/.test(digits)) return digits;
   return null;
 }
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
   }
 
   // V4 references must be 6–42 characters and contain only letters, numbers or hyphens.
-  const reference = \`po\${randomUUID().replace(/-/g, "")}\`;
+  const reference = `po${randomUUID().replace(/-/g, "")}`;
   const { error: insertError } = await admin.from("billing_payments")
     .insert({
       owner_id: user.id,
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
 
     const customerResult = await flutterwaveV4Request<DataWithId>("/customers", {
       method: "POST",
-      idempotencyKey: \`podcasti-customer-\${user.id.replace(/-/g, "")}\`,
+      idempotencyKey: `podcasti-customer-${user.id.replace(/-/g, "")}`,
       body: { email: user.email },
     });
     const customerId = customerResult.data?.id;
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
 
     const paymentMethodResult = await flutterwaveV4Request<DataWithId>("/payment-methods", {
       method: "POST",
-      idempotencyKey: \`\${reference}-pm\`,
+      idempotencyKey: `${reference}-pm`,
       body: {
         type: "mobile_money",
         mobile_money: {
@@ -156,14 +156,14 @@ export async function POST(request: NextRequest) {
 
     const chargeResult = await flutterwaveV4Request<ChargeData>("/charges", {
       method: "POST",
-      idempotencyKey: \`\${reference}-charge\`,
+      idempotencyKey: `${reference}-charge`,
       body: {
         reference,
         currency: "KES",
         amount,
         customer_id: customerId,
         payment_method_id: paymentMethodId,
-        redirect_url: \`\${appUrl}/api/billing/flutterwave/callback\`,
+        redirect_url: `${appUrl}/api/billing/flutterwave/callback`,
         meta: {
           product: "Podcasti subscription",
           plan_interval: interval,
