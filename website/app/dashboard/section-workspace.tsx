@@ -103,6 +103,7 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [scriptLimit, setScriptLimit] = useState(5000);
 
   useEffect(() => {
     let active = true;
@@ -113,7 +114,9 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
       ]);
       if (!active) return;
       const adminWorkspace = workspace?.plan === "admin";
+      const planLimit = !workspace?.plan || workspace.plan === "free" ? 5000 : 50000;
       setIsAdmin(adminWorkspace);
+      setScriptLimit(planLimit);
       if (error) {
         setError("Workspace settings are not available. Apply all Supabase migrations, including 0007 and 0008, then refresh this page.");
       } else if (data) {
@@ -124,6 +127,7 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
         setForm({
           ...defaultSettings,
           ...data,
+          minimum_narration_characters: Math.min(Number(data.minimum_narration_characters || defaultSettings.minimum_narration_characters), planLimit),
           tts_voice: voiceExists && (adminWorkspace || !voiceIsReserved) ? savedVoice : defaultSettings.tts_voice,
           publishing_interval_hours: PUBLISHING_INTERVALS.includes(savedInterval as (typeof PUBLISHING_INTERVALS)[number])
             ? savedInterval
@@ -155,9 +159,9 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
       section === "ai-configuration" &&
       (!Number.isInteger(form.minimum_narration_characters) ||
         form.minimum_narration_characters < 5000 ||
-        form.minimum_narration_characters > 50000)
+        form.minimum_narration_characters > scriptLimit)
     ) {
-      setError("Choose a script length between 5,000 and 50,000 characters.");
+      setError(`Your current plan allows a maximum of ${scriptLimit.toLocaleString()} script characters.`);
       setSaving(false);
       return;
     }
@@ -227,19 +231,19 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
       <div className="dash-top"><div><p className="section-kicker">WORKSPACE</p><h1>{info.title}</h1><p>{info.intro}</p></div><span className="pill">Configuration</span></div>
       <form className="panel section-form" onSubmit={save}>
         {section === "ai-configuration" && <>
-          <label>Minimum script length (characters)
+          <label>Script length (characters)
             <input
               type="number"
               inputMode="numeric"
               min={5000}
-              max={50000}
+              max={scriptLimit}
               step={500}
               required
               value={form.minimum_narration_characters}
               onChange={e => update("minimum_narration_characters", Number(e.target.value))}
             />
           </label>
-          <p className="microcopy">This is a minimum narration length, not an exact character count. Every account uses the same platform writing instructions and AI models. Connect your own Groq and/or Gemini API keys in API Connections.</p>
+          <p className="microcopy">{scriptLimit === 5000 ? "Free accounts and accounts without a paid plan are limited to 5,000 narration characters per episode." : "Your current plan allows up to 50,000 narration characters per episode."} Every account uses the same platform writing instructions and AI models. Connect your own Groq and/or Gemini API keys in API Connections.</p>
         </>}
         {section === "audio-settings" && <>
           <label>Text-to-speech provider<input value="Podcasti (provided by platform)" readOnly /></label>

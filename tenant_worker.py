@@ -461,10 +461,16 @@ def run_pipeline(
     ad_slots = workspace_ad_slots(db, owner_id)
 
     history = covered_history(db, owner_id)
+    workspace_plan = str(workspace.get("plan") or "free")
+    maximum_narration_characters = 5000 if workspace_plan == "free" else 50000
+    minimum_narration_characters = int(settings.get("minimum_narration_characters") or 13500)
+    minimum_narration_characters = min(max(5000, minimum_narration_characters), maximum_narration_characters)
+
     config = {
         "rss_feeds": feeds,
         "max_story_age_hours": 24,
-        "minimum_narration_characters": int(settings.get("minimum_narration_characters") or 13500),
+        "minimum_narration_characters": minimum_narration_characters,
+        "maximum_narration_characters": maximum_narration_characters,
         "tts_enabled": True,
         "timezone": settings.get("timezone") or workspace.get("timezone") or "Africa/Nairobi",
         "max_episodes_per_run": 1,
