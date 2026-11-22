@@ -1,23 +1,35 @@
-# Automate Spreaker Podcast — Website
+# Podcasti — Website
 
-Next.js 15 website for Automate Spreaker Podcast, using Supabase Auth and PostgreSQL.
+Next.js 15 application for Podcasti, running on the Cloudflare Worker `sportnewsauto` via Vinext. It uses Supabase Auth and PostgreSQL.
 
 ## Product decisions
 
 - Light theme.
-- Monthly subscription model; the free plan allows one episode per day.
+- Monthly and yearly subscription options with a free trial plan.
 - Each account owns its Spreaker, Groq and Gemini credentials.
 - Platform-provided Podcasti text-to-speech service.
 - Automatic publishing or review-before-publishing.
 - Account timezone defaults to Africa/Nairobi.
 - Eight evenly spaced schedule times are the editable starting schedule.
 
+## Production hosting
+
+The production website and its API routes run on Cloudflare Workers.
+
+- Website: https://sportnewsauto.kingsleyke.workers.dev
+- Spreaker OAuth callback: https://sportnewsauto.kingsleyke.workers.dev/api/integrations/spreaker/callback
+- Worker: `sportnewsauto`
+
+Deploy the website through the Cloudflare Workers build connected to the `main` branch. The app's Cloudflare deployment configuration is in `website/cloudflare.config.ts`, and the Vinext/Vite integration is in `website/vite.config.ts`.
+
 ## Cloudflare Workers environment variables
 
-The live website runs as the Cloudflare Worker `sportnewsauto`. Set production values in Cloudflare Dashboard → Workers & Pages → `sportnewsauto` → Settings → Variables and Secrets. Use `website/.env.local` for local development. Store private keys and encryption keys as **secrets**, not plain-text variables:
+Set production values in Cloudflare Dashboard → Workers & Pages → `sportnewsauto` → Settings → Variables and Secrets. Use `website/.env.local` for local development. Store private keys and encryption keys as **secrets**, not plain-text variables:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `APP_BASE_URL` — `https://sportnewsauto.kingsleyke.workers.dev`
+- `SPREAKER_REDIRECT_URI` — `https://sportnewsauto.kingsleyke.workers.dev/api/integrations/spreaker/callback`
 - `CREDENTIAL_ENCRYPTION_KEY` — server-only, base64-encoded 32-byte key for AES-256-GCM. Never prefix it with `NEXT_PUBLIC_`, commit it, or put it in browser code.
 - `GITHUB_APP_ID` — the App ID (not Client ID) of the GitHub App used to start the worker immediately.
 - `GITHUB_APP_PRIVATE_KEY` — the private key for that GitHub App. Keep it server-only; never prefix it with `NEXT_PUBLIC_` or commit it.
@@ -27,7 +39,7 @@ The live website runs as the Cloudflare Worker `sportnewsauto`. Set production v
 The GitHub App must be installed on the `Sportsnewsauto/Sportnewsauto` repository and granted **Actions: write** permission. After changing the App permission, approve the permission update for the repository installation. The website uses the App private key to mint a short-lived installation token and dispatch `.github/workflows/multi-tenant-podcast-worker.yml`. No long-lived GitHub personal access token is stored by the website. If the App credentials are not configured or dispatch fails, the existing five-minute scheduled worker remains the fallback.
 
 - No platform-wide Spreaker OAuth Client ID or Client Secret is required. Each workspace owner enters their own Client ID and Client Secret in Dashboard → API Connections; they are encrypted with that user's credential record.
-- Each user's Spreaker Developer App must register this callback URL: `https://sportnewsauto.vercel.app/api/integrations/spreaker/callback`.
+- Each user's Spreaker Developer App must register this callback URL: `https://sportnewsauto.kingsleyke.workers.dev/api/integrations/spreaker/callback`.
 
 Each user supplies their own Spreaker Developer App Client ID and Client Secret. The app credentials and the resulting access/refresh token bundle are encrypted and scoped to that signed-in user's workspace. No customer's OAuth application credentials are shared with another customer.
 
@@ -56,7 +68,7 @@ Run these SQL files in order in the Supabase SQL Editor:
 9. `supabase/migrations/0009_manual_automation_trial.sql`
 10. `supabase/migrations/0010_free_script_limit.sql`
 
-In Supabase Authentication → URL Configuration, set the Site URL to the deployed website and allow the deployed authentication callback URL.
+In Supabase Authentication → URL Configuration, set the Site URL to `https://sportnewsauto.kingsleyke.workers.dev` and allow the deployed authentication callback URL.
 
 ## Implemented
 
@@ -76,9 +88,9 @@ In Supabase Authentication → URL Configuration, set the Site URL to the deploy
 
 ## Still requires external setup
 
-- Run all Supabase migrations through 0010 in order. Migration 0009 installs the secure manual-run queue function; migration 0010 enforces the free-plan narration character limit.
+- Run all required Supabase migrations in order. Migration 0009 installs the secure manual-run queue function; migration 0010 enforces the free-plan narration character limit. Apply any newer pending migration files from `supabase/migrations` as part of the release process.
 - Configure the GitHub App credentials as Cloudflare Worker variables/secrets and grant the installed App Actions: write permission for immediate manual-run dispatch. Save/deploy the Worker after adding or changing these values.
-- Each user registers the website callback URL in their own Spreaker Developer App, then saves their own Client ID and Client Secret under Dashboard → API Connections.
+- Each user registers the Cloudflare Worker callback URL in their own Spreaker Developer App, then saves their own Client ID and Client Secret under Dashboard → API Connections.
 - For a new deployment, add the GitHub Actions worker secrets listed above. The worker skips processing when required secrets are missing.
 - For each workspace, connect Spreaker, select a show, connect the chosen Groq or Gemini provider, enable news feeds and then explicitly enable scheduled generation. The worker checks the queue every five minutes, uses each workspace's saved 2/4/6/8-hour interval for scheduled runs, and enforces each workspace's daily limit.
 - Accept Spreaker's Ad Exchange terms in the Spreaker account if you want Spreaker to use the submitted advertising cue points. Cue points are not the same as supplying your own ad audio or campaigns.
