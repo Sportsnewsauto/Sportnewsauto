@@ -44,26 +44,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Please sign in to the Admin account before importing the old automation." }, { status: 401 });
   }
 
-  const adminEmail = process.env.AUTOMATION_ADMIN_EMAIL?.trim().toLowerCase();
-  const secretKey = process.env.SUPABASE_SECRET_KEY?.trim();
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  if (!adminEmail) {
-    return NextResponse.json({ error: "Admin setup is incomplete. Add AUTOMATION_ADMIN_EMAIL to Vercel using the email for your Admin login." }, { status: 503 });
-  }
-  if (user.email?.toLowerCase() !== adminEmail) {
-    return NextResponse.json({ error: "This import is restricted to the configured Admin account. Sign in with the Admin email." }, { status: 403 });
-  }
-  if (!secretKey || !supabaseUrl) {
-    return NextResponse.json({ error: "Admin setup is incomplete. Add the server-only SUPABASE_SECRET_KEY and AUTOMATION_ADMIN_EMAIL to Vercel, then redeploy." }, { status: 503 });
-  }
-
   const { data: workspace, error: workspaceError } = await supabase
     .from("workspaces")
-    .select("daily_episode_limit")
+    .select("plan,daily_episode_limit")
     .eq("owner_id", user.id)
     .single();
   if (workspaceError || !workspace) {
     return NextResponse.json({ error: "Your workspace could not be found. Refresh the dashboard and try again." }, { status: 503 });
+  }
+  if (workspace.plan !== "admin") {
+    return NextResponse.json({ error: "This import is restricted to the platform Admin workspace." }, { status: 403 });
   }
 
   const { data: existingSettings, error: settingsReadError } = await supabase
@@ -176,26 +166,9 @@ export async function POST(request: Request) {
     }
   }
 
-  const adminHeaders: Record<string, string> = {
-    apikey: secretKey,
-    "Content-Type": "application/json",
-    Prefer: "return=minimal",
-  };
-  if (!secretKey.startsWith("sb_secret_")) {
-    adminHeaders.Authorization = `Bearer ${secretKey}`;
-  }
-  const adminUpdate = await fetch(
-    `${supabaseUrl.endsWith("/") ? supabaseUrl.slice(0, -1) : supabaseUrl}/rest/v1/workspaces?owner_id=eq.${encodeURIComponent(user.id)}`,
-    {
-      method: "PATCH",
-      headers: adminHeaders,
-      body: JSON.stringify({ plan: "admin", daily_episode_limit: 8, updated_at: new Date().toISOString() }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(10000),
-    },
-  );
-  if (!adminUpdate.ok) {
-    return NextResponse.json({ error: "The automation was imported, but the Admin eight-episode allowance could not be assigned. Apply Supabase migration 0005 and try the import again." }, { status: 503 });
+  // The signed-in workspace is already verified as Admin above. Preserve its protected plan and allowance.
+
+  return NextResponse.json({ error: "The automation was imported, but the Admin eight-episode allowance could not be assigned. Apply Supabase migration 0005 and try the import again." }, { status: 503 });
   }
 
   return NextResponse.json({
@@ -208,9 +181,9 @@ export async function POST(request: Request) {
       scheduled_times: scheduledTimes,
       timezone: "Africa/Nairobi",
     },
-    daily_episode_limit: 8,
+    daily_episode_limit: workspace.daily_episode_limit,
     automation_enabled: false,
     credentials_imported: false,
-    message: "Your existing sports automation settings were copied into this signed-in workspace. Connect this account's own Spreaker and AI credentials, choose its Spreaker show, then enable the schedule.",
+    message: "Your existing sports automation settings were copied into your Admin workspace. Connect this account's own Spreaker and AI credentials, choose its Spreaker show, then enable the schedule.",
   });
 }
