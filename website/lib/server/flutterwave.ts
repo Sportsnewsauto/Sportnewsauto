@@ -35,6 +35,7 @@ type FlutterwaveCharge = {
   status: string;
   amount: number | string;
   currency: string;
+  payment_method_details?: { type?: string; [key: string]: unknown };
   [key: string]: unknown;
 };
 
@@ -67,6 +68,11 @@ export function isFlutterwaveConfigured() {
     clientSecret() &&
     process.env.FLUTTERWAVE_WEBHOOK_HASH?.trim()
   );
+}
+
+// Card and M-Pesa both use the same configured V4 credentials and webhook.
+export function isFlutterwaveCardCheckoutConfigured() {
+  return isFlutterwaveConfigured();
 }
 
 async function getAccessToken(forceRefresh = false): Promise<string> {
@@ -196,6 +202,56 @@ export function verifyFlutterwaveV4WebhookSignature(rawBody: string, signature: 
   }
 
   return provided.length === expected.length && timingSafeEqual(provided, expected);
+}
+
+
+/**
+ * Verify a V4 Orchestrator card charge directly with Flutterwave before
+ * allowing the shared subscription RPC to activate access.
+ */
+export async function completeVerifiedFlutterwaveCardV4Payment(reference: string, chargeId: string) {
+  if (!reference.startsWith("oc") || !chargeId || !isFlutterwaveConfigured()) return false;
+
+  const admin = createAdminClient();
+  const { data: payment, error: paymentError } = await admin
+    .from("billing_payments")
+    .select("id,amount_ksh,status,payment_provider,flutterwave_transaction_id")
+    .eq("tx_ref", reference)
+    .eq("payment_provider", "flutterwave")
+    .maybeSingle();
+
+  if (paymentError || !payment || payment.status === "failed") return false;
+  if (payment.flutterwave_transaction_id && payment.flutterwave_transaction_id !== chargeId) {
+    return false;
+  }
+
+  const envelope = await flutterwaveV4Request<FlutterwaveCharge>(
+    `/charges/${encodeURIComponent(chargeId)}`,
+  );
+  const charge = envelope.data;
+  if (
+    envelope.status !== "success" ||
+    !charge ||
+    String(charge.id) !== chargeId ||
+    charge.reference !== reference ||
+    String(charge.status).toLowerCase() !== "succeeded" ||
+    String(charge.payment_method_details?.type || "").toLowerCase() !== "card" ||
+    String(charge.currency).toUpperCase() !== "KES" ||
+    !Number.isSafeInteger(Number(charge.amount)) ||
+    Number(charge.amount) !== Number(payment.amount_ksh)
+  ) {
+    return false;
+  }
+
+  const { error } = await admin.rpc("complete_flutterwave_subscription", {
+    p_tx_ref: reference,
+    p_transaction_id: chargeId,
+    p_amount: Number(charge.amount),
+    p_currency: String(charge.currency),
+    p_callback_payload: envelope,
+  });
+
+  return !error;
 }
 
 /**
