@@ -67,6 +67,12 @@ class SubscriptionEntitlementTests(unittest.TestCase):
             }
             self.assertEqual(tenant_worker.effective_workspace_plan(workspace, self.now), "free")
 
+    def test_free_workspace_only_uses_two_rss_feeds(self):
+        feeds = [{"name": f"feed-{n}", "url": f"https://example.com/{n}.xml"} for n in range(4)]
+        self.assertEqual(len(tenant_worker.workspace_feeds_for_plan(feeds, "free")), 2)
+        self.assertEqual(len(tenant_worker.workspace_feeds_for_plan(feeds, "pro")), 4)
+        self.assertEqual(len(tenant_worker.workspace_feeds_for_plan(feeds, "admin")), 4)
+
     def test_free_workspace_always_uses_the_single_bella_voice(self):
         self.assertEqual(
             tenant_worker.workspace_kokoro_voice({"tts_voice": "bm_george"}, "free"),
