@@ -62,8 +62,8 @@ export default async function Dashboard() {
   const activePaid = workspace?.plan === "admin" || (["pro", "business"].includes(workspace?.plan ?? "") && workspace?.subscription_status === "active" && paidExpiresAt > Date.now());
   const planDisplay = workspace?.plan === "admin" ? "Admin" : activePaid ? (workspace?.subscription_interval === "yearly" ? "Yearly" : "Monthly") : "Free";
   const automationLabel = settings?.automation_enabled && activePaid ? "Enabled" : "Paused";
-  const adminEmail = process.env.AUTOMATION_ADMIN_EMAIL?.trim().toLowerCase();
-  const isPlatformAdmin = Boolean(adminEmail && user.email?.toLowerCase() === adminEmail);
+  // The Admin plan is protected by the database trigger; use it as the source of truth.
+  const isPlatformAdmin = workspace?.plan === "admin";
 
   return (
     <section className="dash-main">
