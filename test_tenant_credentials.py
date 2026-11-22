@@ -133,7 +133,7 @@ class CredentialIsolationTests(unittest.TestCase):
             settings={"ai_provider": "gemini", "ai_model": "customer-choice"},
             groq_key="customer-groq-key",
             gemini_key="customer-gemini-key",
-            verified_providers={"gemini", "spreaker"},
+            verified_providers={"groq", "gemini", "spreaker"},
             spreaker_token="customer-spreaker-token",
             show_id="show-b",
             ad_slots=[],
