@@ -79,11 +79,6 @@ begin
     coalesce(nullif(new.raw_user_meta_data ->> 'workspace_name', ''), 'My Podcast Workspace')
   );
 
-  -- Do not retain the one-time reservation token in editable user metadata.
-  update auth.users
-    set raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb) - 'free_signup_claim_token'
-    where id = new.id;
-
   return new;
 end;
 $$;
