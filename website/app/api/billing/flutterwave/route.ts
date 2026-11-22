@@ -125,9 +125,11 @@ export async function POST(request: NextRequest) {
   }
 
   let chargeCreated = false;
+  let paymentStage = "checking Flutterwave authentication and the Kenya M-Pesa network";
   try {
     const network = await getKenyanMpesaNetwork();
 
+    paymentStage = "creating your Flutterwave customer record";
     const customerResult = await flutterwaveV4Request<DataWithId>("/customers", {
       method: "POST",
       idempotencyKey: `podcasti-customer-${user.id.replace(/-/g, "")}`,
@@ -138,6 +140,7 @@ export async function POST(request: NextRequest) {
       throw new Error("Flutterwave could not create the customer record.");
     }
 
+    paymentStage = "setting up your M-Pesa phone payment method";
     const paymentMethodResult = await flutterwaveV4Request<DataWithId>("/payment-methods", {
       method: "POST",
       idempotencyKey: `${reference}-pm`,
@@ -155,6 +158,7 @@ export async function POST(request: NextRequest) {
       throw new Error("Flutterwave could not prepare the M-Pesa payment method.");
     }
 
+    paymentStage = "starting the M-Pesa charge";
     const chargeResult = await flutterwaveV4Request<ChargeData>("/charges", {
       method: "POST",
       idempotencyKey: `${reference}-charge`,
@@ -209,15 +213,24 @@ export async function POST(request: NextRequest) {
       success: true,
       message: instruction,
     }, { headers: { "Cache-Control": "no-store" } });
-  } catch {
+  } catch (cause) {
+    // Never log request bodies, access tokens, customer phone numbers or secrets.
+    // The helper sanitizes customer identifiers from provider messages.
+    const diagnostic = cause instanceof Error ? cause.message : "Unknown provider error";
+    console.error("[billing/flutterwave] Payment initiation failed", {
+      stage: paymentStage,
+      diagnostic,
+      reference,
+    });
+
     // Do not mark a charge failed after Flutterwave created it. If saving the
     // local reference transiently fails, the signed webhook/callback can still
     // verify it by the unique merchant reference.
     if (!chargeCreated) {
-      await markPaymentFailed(admin, reference, "Flutterwave V4 could not start the M-Pesa charge.");
+      await markPaymentFailed(admin, reference, `Flutterwave failed while ${paymentStage}.`);
     }
     return NextResponse.json({
-      error: "Flutterwave could not start the M-Pesa payment. Check your live account setup and try again.",
+      error: `Flutterwave could not complete ${paymentStage}. ${diagnostic}`,
     }, { status: 502 });
   }
 }
