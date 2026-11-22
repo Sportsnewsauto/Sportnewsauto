@@ -68,7 +68,8 @@ export default function SubscriptionManager() {
         throw new Error(data.error || "Could not open Flutterwave checkout.");
       }
       const checkout = new URL(data.checkout_url);
-      const allowedHost = checkout.hostname.endsWith(".flutterwave.com") ||
+      const allowedHost = checkout.hostname === "checkout.sgmpayment.com" ||
+        checkout.hostname.endsWith(".flutterwave.com") ||
         checkout.hostname.endsWith(".flutterwave.cloud") ||
         checkout.hostname === "flutterwave.com";
       if (checkout.protocol !== "https:" || !allowedHost) {
