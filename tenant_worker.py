@@ -31,7 +31,19 @@ SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPAB
 if not SUPABASE_SECRET_KEY:
     raise RuntimeError("Add SUPABASE_SECRET_KEY to GitHub Actions secrets.")
 CREDENTIAL_ENCRYPTION_KEY = base64.b64decode(os.environ["CREDENTIAL_ENCRYPTION_KEY"])
-WORKFLOW_WINDOW_HOURS = 3.5
+WORKFLOW_WINDOW_HOURS = 1.5
+
+KOKORO_ENGLISH_VOICES = frozenset({
+    "af_alloy", "af_aoede", "af_bella", "af_heart", "af_jessica",
+    "af_kore", "af_nicole", "af_nova", "af_river", "af_sarah", "af_sky",
+    "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam", "am_michael",
+    "am_onyx", "am_puck", "am_santa",
+    "bf_alice", "bf_emma", "bf_isabella", "bf_lily",
+    "bm_daniel", "bm_fable", "bm_george", "bm_lewis",
+})
+ADMIN_ONLY_KOKORO_VOICES = frozenset({"af_heart", "am_michael"})
+DEFAULT_CUSTOMER_KOKORO_VOICE = "af_bella"
+PUBLISHING_INTERVAL_OPTIONS = frozenset({2, 4, 6, 8})
 SCRIPT_FILES = [
     "fetch_news.py",
     "generate_script.py",
@@ -234,25 +246,20 @@ def workspace_timezone(settings: dict[str, Any], workspace: dict[str, Any]) -> Z
 def due_schedule_slot(settings: dict[str, Any], workspace: dict[str, Any], current: datetime):
     zone = workspace_timezone(settings, workspace)
     local_now = current.astimezone(zone)
-    times = settings.get("scheduled_times") or []
-    if not isinstance(times, list):
-        return None
+    try:
+        interval_hours = int(settings.get("publishing_interval_hours") or 8)
+    except (TypeError, ValueError):
+        interval_hours = 8
+    if interval_hours not in PUBLISHING_INTERVAL_OPTIONS:
+        interval_hours = 8
 
     candidates: list[datetime] = []
     for day in (local_now.date(), local_now.date() - timedelta(days=1)):
-        for value in times:
-            if not isinstance(value, str):
-                continue
-            try:
-                hour, minute = (int(part) for part in value.split(":", 1))
-                if not 0 <= hour <= 23 or not 0 <= minute <= 59:
-                    continue
-                slot = datetime.combine(day, time(hour, minute), tzinfo=zone)
-                delta = (current - slot.astimezone(timezone.utc)).total_seconds()
-                if 0 <= delta <= WORKFLOW_WINDOW_HOURS * 3600:
-                    candidates.append(slot)
-            except (ValueError, TypeError):
-                continue
+        for hour in range(0, 24, interval_hours):
+            slot = datetime.combine(day, time(hour, 0), tzinfo=zone)
+            delta = (current - slot.astimezone(timezone.utc)).total_seconds()
+            if 0 <= delta <= WORKFLOW_WINDOW_HOURS * 3600:
+                candidates.append(slot)
     if not candidates:
         return None
     return max(candidates).astimezone(timezone.utc)
@@ -370,10 +377,20 @@ PLATFORM_SECRET_ENV_VARS = (
 )
 
 
+def workspace_kokoro_voice(settings: dict[str, Any], workspace_plan: str) -> str:
+    voice = str(settings.get("tts_voice") or DEFAULT_CUSTOMER_KOKORO_VOICE)
+    if voice not in KOKORO_ENGLISH_VOICES:
+        return DEFAULT_CUSTOMER_KOKORO_VOICE
+    if voice in ADMIN_ONLY_KOKORO_VOICES and workspace_plan != "admin":
+        return DEFAULT_CUSTOMER_KOKORO_VOICE
+    return voice
+
+
 def build_workspace_process_env(
     base_env: dict[str, str],
     *,
     settings: dict[str, Any],
+    workspace_plan: str = "free",
     groq_key: str,
     gemini_key: str,
     verified_providers: set[str],
@@ -406,7 +423,7 @@ def build_workspace_process_env(
         "PODCAST_COUNTRY": str(settings.get("country") or "KE"),
         "SPREAKER_ACCESS_TOKEN": spreaker_token,
         "SPREAKER_SHOW_ID": show_id,
-        "KOKORO_VOICE": str(settings.get("tts_voice") or "af_heart"),
+        "KOKORO_VOICE": workspace_kokoro_voice(settings, workspace_plan),
         "PUBLISHING_MODE": str(settings.get("publishing_mode") or "automatic"),
         "AD_CUEPOINTS_JSON": json.dumps(ad_slots),
         "KOKORO_TORCH_THREADS": "4",
@@ -465,6 +482,7 @@ def run_pipeline(
         env = build_workspace_process_env(
             os.environ,
             settings=settings,
+            workspace_plan=str(workspace.get("plan") or "free"),
             groq_key=groq_key,
             gemini_key=gemini_key,
             verified_providers=verified,
