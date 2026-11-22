@@ -607,6 +607,9 @@ def run_pipeline(
 
     spreaker_token, _ = usable_spreaker_token(db, owner_id, credentials["spreaker"])
     feeds = workspace_feeds(db, owner_id)
+    if workspace_plan == "free":
+        # Keep older accounts within the same two-feed limit as new Free users.
+        feeds = feeds[:2]
     if not feeds:
         raise RuntimeError("Add and enable at least one sports news feed.")
     ad_slots = workspace_ad_slots(db, owner_id)
