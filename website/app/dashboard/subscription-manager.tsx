@@ -64,13 +64,14 @@ export default function SubscriptionManager() {
         body: JSON.stringify({ interval, phone }),
       });
       const data = await response.json();
-      if (!response.ok || typeof data.checkout_url !== "string") {
-        throw new Error(data.error || "Could not start Flutterwave checkout.");
+      if (!response.ok || data.success !== true) {
+        throw new Error(data.error || "Could not start Flutterwave M-Pesa payment.");
       }
-      setNotice("Opening Flutterwave secure checkout…");
-      window.location.assign(data.checkout_url);
+      setNotice(data.message || "Flutterwave has sent an M-Pesa payment request to your phone. Approve it to finish.");
+      await refresh(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not start Flutterwave checkout.");
+      setError(cause instanceof Error ? cause.message : "Could not start Flutterwave M-Pesa payment.");
+    } finally {
       setBusy(false);
     }
   }
@@ -150,7 +151,7 @@ export default function SubscriptionManager() {
                 <p><del>KSh 6,000</del> · 50% off</p>
                 <ul><li>Up to 3 episodes per day</li><li>90 episodes per rolling 30 days</li><li>20 RSS feeds</li><li>Up to 50,000 script characters</li><li>All standard Podcasti voices</li><li>Automatic scheduling and manual runs</li></ul>
                 <div className="integration-actions">
-                  {status.flutterwave_ready && <button className="btn btn-primary" disabled={busy} onClick={() => void startFlutterwave("monthly")}>Pay by card or M-Pesa</button>}
+                  {status.flutterwave_ready && <button className="btn btn-primary" disabled={busy || !phone.trim()} onClick={() => void startFlutterwave("monthly")}>Pay with Flutterwave M-Pesa</button>}
                   {status.mpesa_ready && <button className="btn btn-outline" disabled={busy || !phone.trim()} onClick={() => void startPayment("monthly")}>Pay directly with M-Pesa</button>}
                 </div>
               </article>
@@ -162,21 +163,21 @@ export default function SubscriptionManager() {
                 <p><del>KSh 30,000</del> · 50% off</p>
                 <ul><li>Everything in Monthly</li><li>12 months of access</li><li>Equivalent to KSh 1,250 per month</li><li>Save KSh 21,000 versus 12 monthly payments</li></ul>
                 <div className="integration-actions">
-                  {status.flutterwave_ready && <button className="btn btn-primary" disabled={busy} onClick={() => void startFlutterwave("yearly")}>Pay online with Flutterwave</button>}
+                  {status.flutterwave_ready && <button className="btn btn-primary" disabled={busy || !phone.trim()} onClick={() => void startFlutterwave("yearly")}>Pay with Flutterwave M-Pesa</button>}
                   {status.mpesa_ready && <button className="btn btn-outline" disabled={busy || !phone.trim()} onClick={() => void startPayment("yearly")}>Pay directly with M-Pesa</button>}
                 </div>
               </article>
             </div>
             <div className="section-form" style={{ marginTop: 20 }}>
-              <label>Phone number (required for direct M-Pesa; optional for card checkout)
+              <label>M-Pesa phone number (required for Flutterwave and direct M-Pesa)
                 <input inputMode="tel" autoComplete="tel" value={phone} onChange={event => setPhone(event.target.value)} placeholder="0712345678" />
               </label>
-              {!status.flutterwave_ready && !status.mpesa_ready && <p className="auth-notice">Online payments are not configured yet. The administrator must add the Flutterwave secret and webhook hash, or Safaricom Daraja credentials, in Cloudflare.</p>}
-              {status.flutterwave_ready && <p className="microcopy">Flutterwave checkout accepts Kenyan card and M-Pesa payments. You will be redirected to Flutterwave’s secure hosted checkout. Podcasti activates the subscription only after a server-side transaction verification.</p>}
+              {!status.flutterwave_ready && !status.mpesa_ready && <p className="auth-notice">Online payments are not configured yet. The administrator must add the Flutterwave V4 Client ID, Client Secret and webhook hash, or Safaricom Daraja credentials, in Cloudflare.</p>}
+              {status.flutterwave_ready && <p className="microcopy">Flutterwave V4 sends an M-Pesa payment request to your phone. Approve the prompt to complete payment. Podcasti activates your subscription only after a signed webhook and server-side charge verification.</p>}
               {status.mpesa_ready && <p className="microcopy">Direct Safaricom M-Pesa STK checkout is also available when configured.</p>}
             </div>
             {status.pending_payment && <div className="auth-notice" style={{ marginTop: 16 }}>
-              {status.pending_payment.payment_provider === "flutterwave" ? "Flutterwave checkout" : "Safaricom M-Pesa"} payment pending for the {status.pending_payment.plan_interval} plan (KSh {status.pending_payment.amount_ksh.toLocaleString()}). Complete the payment, then refresh this page to check the result.
+              {status.pending_payment.payment_provider === "flutterwave" ? "Flutterwave M-Pesa" : "Safaricom M-Pesa"} payment pending for the {status.pending_payment.plan_interval} plan (KSh {status.pending_payment.amount_ksh.toLocaleString()}). Complete the payment on your phone, then refresh this page to check the result.
             </div>}
             <div className="integration-actions" style={{ marginTop: 14 }}>
               <button className="btn btn-outline" onClick={() => void refresh(true)} disabled={refreshing}>{refreshing ? "Refreshing…" : "Refresh payment status"}</button>
@@ -187,7 +188,7 @@ export default function SubscriptionManager() {
             <p>Three lifetime manual runs, up to 5,000 script characters per episode, two RSS feeds, one voice (Bella), no recurring schedule, and no more than three manual run attempts in total. Free access does not renew automatically.</p>
           </div>
         </>}
-        <p className="microcopy">Payments can be completed through Flutterwave (card or M-Pesa) or directly through Safaricom M-Pesa. Monthly and yearly subscriptions are renewed by starting another payment; automatic recurring deductions are not enabled.</p>
+        <p className="microcopy">Payments can be completed through Flutterwave V4 M-Pesa or directly through Safaricom M-Pesa. Monthly and yearly subscriptions are renewed by starting another payment; automatic recurring deductions are not enabled.</p>
       </>}
     </section>
   );
