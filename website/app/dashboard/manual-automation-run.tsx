@@ -24,6 +24,7 @@ export default function ManualAutomationRun() {
   const [trialAvailable, setTrialAvailable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [wakingWorker, setWakingWorker] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -73,6 +74,28 @@ export default function ManualAutomationRun() {
     }
   }
 
+
+  async function wakeWorkerNow() {
+    setWakingWorker(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/automation/dispatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not trigger the worker.");
+      setNotice(data.message || "Worker triggered to check your existing job.");
+      void refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not trigger the worker.");
+    } finally {
+      setWakingWorker(false);
+    }
+  }
+
   const active = job?.status === "queued" || job?.status === "processing";
 
   return (
@@ -96,6 +119,16 @@ export default function ManualAutomationRun() {
       <button className="btn btn-primary" onClick={() => void runNow()} disabled={loading || submitting || active}>
         {submitting ? "Starting…" : active ? "Run in progress…" : trialAvailable ? "Start free trial episode" : "Run automation now"}
       </button>
+      {active && (
+        <button
+          type="button"
+          className="btn"
+          onClick={() => void wakeWorkerNow()}
+          disabled={loading || submitting || wakingWorker}
+        >
+          {wakingWorker ? "Waking worker…" : "Wake worker now"}
+        </button>
+      )}
       <p className="microcopy">Requires at least one enabled HTTPS RSS feed, a verified Spreaker show, and a verified Groq or Gemini connection. Your recurring schedule stays unchanged.</p>
     </section>
   );
