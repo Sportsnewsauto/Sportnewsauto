@@ -90,12 +90,22 @@ begin
     where j.owner_id = v_owner_id
       and j.job_type = 'generate_episode'
       and j.status in ('queued', 'processing')
+      and j.payload ->> 'source' = 'manual'
     order by j.created_at desc
     limit 1;
 
   if found then
     return query select v_existing_job_id, coalesce(v_existing_trial, false), true;
     return;
+  end if;
+
+  if exists (
+    select 1 from public.publishing_jobs as j
+    where j.owner_id = v_owner_id
+      and j.job_type = 'generate_episode'
+      and j.status in ('queued', 'processing')
+  ) then
+    raise exception 'An episode is already queued or being generated for your workspace. Check Episodes before starting another run.';
   end if;
 
   v_settings_timezone := coalesce(nullif(v_settings_timezone, ''), nullif(v_workspace_timezone, ''), 'Africa/Nairobi');
