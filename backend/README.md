@@ -34,6 +34,6 @@ Only health and API-root endpoints exist. There is no registration, login, datab
 - Episode records and approval workflow.
 - Secure job dispatch to GitHub Actions.
 - Spreaker publishing adapter.
-- Platform-hosted Kokoro audio worker.
+- Platform-hosted Podcasti audio service.
 
 Every user-scoped query and background job must enforce ownership on the server. Never trust a user ID supplied by the browser without validating it against the authenticated session.

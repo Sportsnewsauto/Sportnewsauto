@@ -38,8 +38,8 @@ const defaultSettings: WorkspaceSettings = {
   publishing_interval_hours: 8,
 };
 
-const ADMIN_ONLY_KOKORO_VOICES = ["af_heart", "am_michael"];
-const KOKORO_VOICES = [
+const ADMIN_ONLY_PODCASTI_VOICES = ["af_heart", "am_michael"];
+const PODCASTI_VOICES = [
   { id: "af_alloy", label: "Alloy — American English (female)" },
   { id: "af_aoede", label: "Aoede — American English (female)" },
   { id: "af_bella", label: "Bella — American English (female)" },
@@ -73,7 +73,7 @@ const PUBLISHING_INTERVALS = [2, 4, 6, 8] as const;
 
 const sectionInfo: Record<Section, { title: string; intro: string }> = {
   "ai-configuration": { title: "AI Configuration", intro: "Set the minimum number of characters for each episode script." },
-  "audio-settings": { title: "Audio Settings", intro: "Choose a Kokoro narration voice for your podcast." },
+  "audio-settings": { title: "Audio Settings", intro: "Choose a Podcasti narration voice for your podcast." },
   "publishing-schedule": { title: "Publishing Schedule", intro: "Choose how often your podcast episodes should be generated." },
   episodes: { title: "Episodes", intro: "View episode records belonging to your workspace." },
   subscription: { title: "Subscription", intro: "Review your current plan and its usage allowance." },
@@ -118,8 +118,8 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
         setError("Workspace settings are not available. Apply all Supabase migrations, including 0007 and 0008, then refresh this page.");
       } else if (data) {
         const savedVoice = typeof data.tts_voice === "string" ? data.tts_voice : defaultSettings.tts_voice;
-        const voiceExists = KOKORO_VOICES.some(voice => voice.id === savedVoice);
-        const voiceIsReserved = ADMIN_ONLY_KOKORO_VOICES.includes(savedVoice);
+        const voiceExists = PODCASTI_VOICES.some(voice => voice.id === savedVoice);
+        const voiceIsReserved = ADMIN_ONLY_PODCASTI_VOICES.includes(savedVoice);
         const savedInterval = Number(data.publishing_interval_hours);
         setForm({
           ...defaultSettings,
@@ -163,10 +163,10 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
     }
     if (
       section === "audio-settings" &&
-      (!KOKORO_VOICES.some(voice => voice.id === form.tts_voice) ||
-        (!isAdmin && ADMIN_ONLY_KOKORO_VOICES.includes(form.tts_voice)))
+      (!PODCASTI_VOICES.some(voice => voice.id === form.tts_voice) ||
+        (!isAdmin && ADMIN_ONLY_PODCASTI_VOICES.includes(form.tts_voice)))
     ) {
-      setError("Choose a Kokoro voice available to your workspace.");
+      setError("Choose a Podcasti voice available to your workspace.");
       setSaving(false);
       return;
     }
@@ -242,15 +242,15 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
           <p className="microcopy">This is a minimum narration length, not an exact character count. Every account uses the same platform writing instructions and AI models. Connect your own Groq and/or Gemini API keys in API Connections.</p>
         </>}
         {section === "audio-settings" && <>
-          <label>Text-to-speech provider<input value="Kokoro (provided by platform)" readOnly /></label>
-          <label>Kokoro voice
+          <label>Text-to-speech provider<input value="Podcasti (provided by platform)" readOnly /></label>
+          <label>Podcasti voice
             <select required value={form.tts_voice} onChange={e => update("tts_voice", e.target.value)}>
-              {KOKORO_VOICES.filter(voice => isAdmin || !ADMIN_ONLY_KOKORO_VOICES.includes(voice.id)).map(voice => (
+              {PODCASTI_VOICES.filter(voice => isAdmin || !ADMIN_ONLY_PODCASTI_VOICES.includes(voice.id)).map(voice => (
                 <option key={voice.id} value={voice.id}>{voice.label}{("adminOnly" in voice && voice.adminOnly) ? " (Admin only)" : ""}</option>
               ))}
             </select>
           </label>
-          <p className="microcopy">Choose from Kokoro's American and British English voices. The Heart and Michael voices are reserved for the admin workspace.</p>
+          <p className="microcopy">Choose from Podcasti's American and British English voices. The Heart and Michael voices are reserved for the admin workspace.</p>
         </>}
         {section === "publishing-schedule" && <>
           <label className="automation-toggle"><span><strong>Enable scheduled episode generation</strong><small>Leave this off until your Spreaker, AI and sports feed connections are ready.</small></span><input type="checkbox" checked={form.automation_enabled} onChange={e => update("automation_enabled", e.target.checked)} /></label>

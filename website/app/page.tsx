@@ -3,7 +3,7 @@ import Link from "next/link";
 const features = [
   ["◉", "Sports news collection", "Choose sports, leagues and RSS feeds. Bring your own trusted sources into one workflow."],
   ["✦", "AI script generation", "Connect your Groq or Gemini account to turn selected news into narration-ready podcast scripts."],
-  ["♫", "Platform audio generation", "Generate spoken episodes using the platform's hosted Kokoro text-to-speech engine."],
+  ["♫", "Platform audio generation", "Generate spoken episodes using the platform's hosted Podcasti text-to-speech service."],
   ["◷", "Flexible scheduling", "Choose publishing times and your timezone. Paid plans can unlock higher daily episode limits."],
   ["▣", "Your Spreaker account", "Connect your own Spreaker show and publish episodes to your own audience."],
   ["✓", "Review or automate", "Choose automatic publishing or hold each finished episode for your approval."]
@@ -72,7 +72,7 @@ export default function HomePage() {
           <div className="container">
             <div className="section-head"><span className="eyebrow">SIMPLE MONTHLY PLANS</span><h2>Start free. Upgrade when you grow.</h2><p>Subscription limits apply to platform automation. Your AI provider usage is billed separately by your own provider.</p></div>
             <div className="pricing-grid">
-              <article className="plan"><h3>Free</h3><p>Try the complete workflow on a smaller schedule.</p><div className="price">$0 <small>/ month</small></div><ul><li>1 episode per day</li><li>One podcast workspace</li><li>Bring your own AI keys</li><li>Your own Spreaker account</li><li>Hosted Kokoro audio generation</li></ul><Link className="btn btn-outline" href="/signup">Start free</Link></article>
+              <article className="plan"><h3>Free</h3><p>Try the complete workflow on a smaller schedule.</p><div className="price">$0 <small>/ month</small></div><ul><li>1 episode per day</li><li>One podcast workspace</li><li>Bring your own AI keys</li><li>Your own Spreaker account</li><li>Hosted Podcasti audio generation</li></ul><Link className="btn btn-outline" href="/signup">Start free</Link></article>
               <article className="plan featured"><span className="eyebrow">POPULAR CHOICE</span><h3 style={{marginTop:14}}>Pro</h3><p>For creators who want a more active publishing schedule.</p><div className="price">Coming soon</div><ul><li>Higher daily episode allowance</li><li>Expanded sports feed controls</li><li>Advanced scheduling</li><li>Automatic or approval publishing</li><li>Extended episode history</li></ul><a className="btn btn-primary" href="mailto:hello@automatespreakerpodcast.com">Join the waitlist</a></article>
               <article className="plan"><h3>Business</h3><p>For teams managing multiple podcast shows.</p><div className="price">Coming soon</div><ul><li>Multiple podcast workspaces</li><li>Higher automation allowances</li><li>Team access options</li><li>Advanced reporting</li><li>Priority support</li></ul><a className="btn btn-outline" href="mailto:hello@automatespreakerpodcast.com">Contact us</a></article>
             </div>
