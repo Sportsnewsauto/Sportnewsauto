@@ -10,6 +10,9 @@ on:
       - "generate_metadata.py"
       - "test_worker_published_episode_recovery.py"
       - "test_worker_subscription_limits.py"
+      - "record_covered_story.py"
+      - "test_record_covered_story.py"
+      - ".github/workflows/podcast.yml"
       - ".github/workflows/multi-tenant-podcast-worker.yml"
       - ".github/workflows/podcast-worker-ci.yml"
   pull_request:
@@ -35,6 +38,6 @@ jobs:
       - name: Install worker test dependencies
         run: python -m pip install requests cryptography
       - name: Compile worker and upload scripts
-        run: python -m py_compile tenant_worker.py upload_spreaker.py generate_script.py generate_metadata.py
+        run: python -m py_compile tenant_worker.py upload_spreaker.py generate_script.py generate_metadata.py record_covered_story.py
       - name: Test customer credential isolation and subscription entitlements
-        run: python -m unittest -v test_tenant_credentials.py test_worker_published_episode_recovery.py test_worker_subscription_limits.py
+        run: python -m unittest -v test_tenant_credentials.py test_worker_published_episode_recovery.py test_worker_subscription_limits.py test_record_covered_story.py
