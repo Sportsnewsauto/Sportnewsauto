@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, isMpesaConfigured } from "@/lib/server/supabase-admin";
+import { isFlutterwaveConfigured } from "@/lib/server/flutterwave";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,7 +56,7 @@ export async function GET() {
     try {
       const admin = createAdminClient();
       const { data } = await admin.from("billing_payments")
-        .select("id,plan_interval,amount_ksh,status,created_at,result_description")
+        .select("id,plan_interval,amount_ksh,status,payment_provider,created_at,result_description")
         .eq("owner_id", user.id)
         .eq("status", "pending")
         .order("created_at", { ascending: false })
@@ -86,6 +87,7 @@ export async function GET() {
       episodes_daily_limit: isAdmin ? (workspace.daily_episode_limit ?? 8) : 3,
     },
     mpesa_ready: isMpesaConfigured() && Boolean(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY),
+    flutterwave_ready: isFlutterwaveConfigured() && Boolean(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY),
     pending_payment: pendingPayment,
   }, { headers: { "Cache-Control": "no-store" } });
 }
