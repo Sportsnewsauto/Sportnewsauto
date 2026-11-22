@@ -2,25 +2,41 @@ import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/server/supabase-admin";
-import { isFlutterwaveConfigured } from "@/lib/server/flutterwave";
+import {
+  completeVerifiedFlutterwavePayment,
+  flutterwaveV4Request,
+  getKenyanMpesaNetwork,
+  isFlutterwaveConfigured,
+} from "@/lib/server/flutterwave";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function normalizeKenyanPhone(value: unknown): string | null | undefined {
+function normalizeKenyanPhone(value: unknown): string | null {
   if (typeof value !== "string" || !value.trim()) return null;
   const digits = value.replace(/[\s()+-]/g, "");
   if (/^0[17]\d{8}$/.test(digits)) return `254${digits.slice(1)}`;
   if (/^254[17]\d{8}$/.test(digits)) return digits;
-  return undefined;
+  return null;
 }
 
-async function markPaymentFailed(admin: ReturnType<typeof createAdminClient>, txRef: string, message: string) {
+async function markPaymentFailed(admin: ReturnType<typeof createAdminClient>, reference: string, message: string) {
   await admin.from("billing_payments")
     .update({ status: "failed", result_description: message.slice(0, 500), updated_at: new Date().toISOString() })
-    .eq("tx_ref", txRef)
+    .eq("tx_ref", reference)
     .eq("status", "pending");
 }
+
+type DataWithId = { id?: string };
+type ChargeData = {
+  id?: string;
+  reference?: string;
+  status?: string;
+  next_action?: {
+    payment_instruction?: { note?: string };
+    redirect_url?: { url?: string };
+  };
+};
 
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
@@ -35,7 +51,9 @@ export async function POST(request: NextRequest) {
   }
 
   if (!isFlutterwaveConfigured()) {
-    return NextResponse.json({ error: "Flutterwave checkout is not configured yet. Add the server-side Flutterwave secret key." }, { status: 503 });
+    return NextResponse.json({
+      error: "Flutterwave V4 is not fully configured. Add the live Client ID, Client Secret and webhook hash in Cloudflare.",
+    }, { status: 503 });
   }
   if (!(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)) {
     return NextResponse.json({ error: "Secure payment records are not configured. Contact the Podcasti administrator." }, { status: 503 });
@@ -45,13 +63,13 @@ export async function POST(request: NextRequest) {
   try {
     input = await request.json();
   } catch {
-    return NextResponse.json({ error: "Choose a subscription plan and try again." }, { status: 400 });
+    return NextResponse.json({ error: "Choose a subscription plan and enter your M-Pesa phone number." }, { status: 400 });
   }
 
   const interval = input.interval === "yearly" ? "yearly" : input.interval === "monthly" ? "monthly" : null;
   const phone = normalizeKenyanPhone(input.phone);
-  if (!interval || phone === undefined) {
-    return NextResponse.json({ error: "Choose Monthly or Yearly and enter a valid Kenyan phone number, or leave the phone number blank." }, { status: 400 });
+  if (!interval || !phone) {
+    return NextResponse.json({ error: "Choose Monthly or Yearly and enter a valid Kenyan M-Pesa phone number." }, { status: 400 });
   }
 
   const amount = interval === "monthly" ? 3000 : 15000;
@@ -83,7 +101,8 @@ export async function POST(request: NextRequest) {
     }, { status: 409 });
   }
 
-  const txRef = `podcasti_${randomUUID()}`;
+  // V4 references must be 6–42 characters and contain only letters, numbers or hyphens.
+  const reference = `po${randomUUID().replace(/-/g, "")}`;
   const { error: insertError } = await admin.from("billing_payments")
     .insert({
       owner_id: user.id,
@@ -91,7 +110,7 @@ export async function POST(request: NextRequest) {
       amount_ksh: amount,
       phone_number: phone,
       payment_provider: "flutterwave",
-      tx_ref: txRef,
+      tx_ref: reference,
       status: "pending",
     });
 
@@ -101,77 +120,104 @@ export async function POST(request: NextRequest) {
 
   const appUrl = (process.env.APP_BASE_URL || new URL(request.url).origin).replace(/\/$/, "");
   if (!appUrl.startsWith("https://")) {
-    await markPaymentFailed(admin, txRef, "The configured payment callback URL must use HTTPS.");
+    await markPaymentFailed(admin, reference, "The configured payment callback URL must use HTTPS.");
     return NextResponse.json({ error: "The payment callback URL must be HTTPS. Check APP_BASE_URL in Cloudflare." }, { status: 503 });
   }
 
+  let chargeCreated = false;
   try {
-    const customer: Record<string, string> = { email: user.email };
-    const displayName = typeof user.user_metadata?.full_name === "string"
-      ? user.user_metadata.full_name
-      : typeof user.user_metadata?.name === "string" ? user.user_metadata.name : "";
-    if (displayName) customer.name = displayName;
-    if (phone) customer.phone_number = phone;
+    const network = await getKenyanMpesaNetwork();
 
-    const response = await fetch("https://api.flutterwave.com/v3/payments", {
+    const customerResult = await flutterwaveV4Request<DataWithId>("/customers", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY!.trim()}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        tx_ref: txRef,
-        amount,
-        currency: "KES",
-        redirect_url: `${appUrl}/api/billing/flutterwave/callback`,
-        customer,
-        payment_options: "card,mpesa",
-        customizations: {
-          title: "Podcasti subscription",
-          description: `Podcasti ${interval} subscription`,
-        },
-        meta: {
-          tx_ref: txRef,
-          plan_interval: interval,
-          payment_id: txRef,
-        },
-      }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(15000),
+      idempotencyKey: `podcasti-customer-${user.id.replace(/-/g, "")}`,
+      body: { email: user.email },
     });
-
-    const result = await response.json() as {
-      status?: string;
-      message?: string;
-      data?: { link?: string };
-    };
-    const checkoutLink = result.data?.link;
-    let checkoutUrl: URL | null = null;
-    try {
-      if (checkoutLink) checkoutUrl = new URL(checkoutLink);
-    } catch {
-      checkoutUrl = null;
+    const customerId = customerResult.data?.id;
+    if (customerResult.status !== "success" || !customerId) {
+      throw new Error("Flutterwave could not create the customer record.");
     }
 
+    const paymentMethodResult = await flutterwaveV4Request<DataWithId>("/payment-methods", {
+      method: "POST",
+      idempotencyKey: `${reference}-pm`,
+      body: {
+        type: "mobile_money",
+        mobile_money: {
+          country_code: "254",
+          network,
+          phone_number: phone.slice(3),
+        },
+      },
+    });
+    const paymentMethodId = paymentMethodResult.data?.id;
+    if (paymentMethodResult.status !== "success" || !paymentMethodId) {
+      throw new Error("Flutterwave could not prepare the M-Pesa payment method.");
+    }
+
+    const chargeResult = await flutterwaveV4Request<ChargeData>("/charges", {
+      method: "POST",
+      idempotencyKey: `${reference}-charge`,
+      body: {
+        reference,
+        currency: "KES",
+        amount,
+        customer_id: customerId,
+        payment_method_id: paymentMethodId,
+        redirect_url: `${appUrl}/api/billing/flutterwave/callback`,
+        meta: {
+          product: "Podcasti subscription",
+          plan_interval: interval,
+        },
+      },
+    });
+
+    const charge = chargeResult.data;
     if (
-      !response.ok ||
-      result.status !== "success" ||
-      !checkoutUrl ||
-      checkoutUrl.protocol !== "https:" ||
-      checkoutUrl.hostname !== "checkout.flutterwave.com"
+      chargeResult.status !== "success" ||
+      !charge?.id ||
+      (charge.reference && charge.reference !== reference)
     ) {
-      await markPaymentFailed(admin, txRef, "Flutterwave did not return a valid hosted checkout link.");
-      return NextResponse.json({ error: "Flutterwave could not start checkout. Check the gateway account and try again." }, { status: 502 });
+      throw new Error("Flutterwave did not return a valid charge.");
+    }
+    chargeCreated = true;
+
+    const instruction = charge.next_action?.payment_instruction?.note
+      || "Flutterwave has sent an M-Pesa payment request to your phone. Check your phone and approve it to complete the payment.";
+    const { error: saveChargeError } = await admin.from("billing_payments")
+      .update({
+        flutterwave_transaction_id: charge.id,
+        result_description: instruction.slice(0, 500),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("tx_ref", reference)
+      .eq("status", "pending");
+
+    if (saveChargeError) {
+      throw new Error("The payment was started, but Podcasti could not save its confirmation reference.");
+    }
+
+    if (String(charge.status).toLowerCase() === "succeeded") {
+      const completed = await completeVerifiedFlutterwavePayment(reference, charge.id);
+      return NextResponse.json({
+        success: true,
+        message: completed ? "Flutterwave confirmed your payment. Your subscription is active." : instruction,
+      }, { headers: { "Cache-Control": "no-store" } });
     }
 
     return NextResponse.json({
       success: true,
-      checkout_url: checkoutUrl.toString(),
-      tx_ref: txRef,
-    }, { status: 200, headers: { "Cache-Control": "no-store" } });
+      message: instruction,
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch {
-    await markPaymentFailed(admin, txRef, "Could not contact Flutterwave to create checkout.");
-    return NextResponse.json({ error: "Could not connect to Flutterwave. Please try again." }, { status: 502 });
+    // Do not mark a charge failed after Flutterwave created it. If saving the
+    // local reference transiently fails, the signed webhook/callback can still
+    // verify it by the unique merchant reference.
+    if (!chargeCreated) {
+      await markPaymentFailed(admin, reference, "Flutterwave V4 could not start the M-Pesa charge.");
+    }
+    return NextResponse.json({
+      error: "Flutterwave could not start the M-Pesa payment. Check your live account setup and try again.",
+    }, { status: 502 });
   }
 }
