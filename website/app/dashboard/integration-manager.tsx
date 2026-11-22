@@ -164,12 +164,57 @@ export default function IntegrationManager() {
 
   return <section className="panel integration-list">
     <div className="integration-security"><strong>Encrypted credential storage</strong><p>Credentials are encrypted on the server with AES-256-GCM. The secret value is never returned to the browser. Saved credentials can be tested against each provider; the secret itself is never returned to the browser.</p></div>
-    <div className="integration-security">
-      <strong>Your own Spreaker Developer App</strong>
-      <p>Enter the Spreaker Client ID, Client Secret, and Access Token belonging to this customer’s own Spreaker account. The website verifies the access token with Spreaker, then encrypts and stores all three credentials for the signed-in customer only. This direct-token connection does not use an OAuth callback URL.</p>
-      <label>Spreaker Client ID<input type="text" autoComplete="off" value={spreakerClientId} onChange={e => setSpreakerClientId(e.target.value)} placeholder="Enter your Spreaker Client ID" /></label>
-      <label>Spreaker Client Secret<input type="password" autoComplete="new-password" value={spreakerClientSecret} onChange={e => setSpreakerClientSecret(e.target.value)} placeholder="Enter your Spreaker Client Secret" /></label>
-      <label>Spreaker Access Token<input type="password" autoComplete="off" value={spreakerAccessToken} onChange={e => setSpreakerAccessToken(e.target.value)} placeholder="Paste your Spreaker Access Token" /></label>
+    <div className="spreaker-setup-card">
+      <div className="integration-heading spreaker-setup-heading">
+        <div>
+          <p className="section-kicker">PODCAST PUBLISHING</p>
+          <h2>Your Spreaker Developer App</h2>
+          <p>Connect your own Spreaker account so Podcasti can publish episodes to your show.</p>
+        </div>
+        <span className={connectionFor("spreaker")?.status === "connected" ? "status" : connectionFor("spreaker") ? "pill" : "status-muted"}>
+          {connectionFor("spreaker")?.status === "connected"
+            ? "Account connected"
+            : connectionFor("spreaker")
+              ? "App details saved"
+              : "Not connected"}
+        </span>
+      </div>
+
+      <div className="spreaker-setup-guide">
+        <div className="spreaker-setup-step">
+          <span className="spreaker-step-number">01</span>
+          <div>
+            <strong>Enable Spreaker Developer Tools</strong>
+            <p>Sign in to Spreaker, then enable the Developers section on your account.</p>
+            <a href="https://www.spreaker.com/account/developer/enable" target="_blank" rel="noopener noreferrer">
+              Enable Developer Tools on Spreaker ↗
+            </a>
+          </div>
+        </div>
+        <div className="spreaker-setup-step">
+          <span className="spreaker-step-number">02</span>
+          <div>
+            <strong>Create your developer app</strong>
+            <p>Open your developer area and get the Client ID, Client Secret and an Access Token for your Spreaker account.</p>
+            <a href="https://developers.spreaker.com/guides/authentication/" target="_blank" rel="noopener noreferrer">
+              Read Spreaker's authentication guide ↗
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div className="spreaker-credentials-grid">
+        <label>Spreaker Client ID
+          <input type="text" autoComplete="off" value={spreakerClientId} onChange={e => setSpreakerClientId(e.target.value)} placeholder="Enter your Spreaker Client ID" />
+        </label>
+        <label>Spreaker Client Secret
+          <input type="password" autoComplete="new-password" value={spreakerClientSecret} onChange={e => setSpreakerClientSecret(e.target.value)} placeholder="Enter your Spreaker Client Secret" />
+        </label>
+        <label className="spreaker-token-field">Spreaker Access Token
+          <input type="password" autoComplete="off" value={spreakerAccessToken} onChange={e => setSpreakerAccessToken(e.target.value)} placeholder="Paste your Spreaker Access Token" />
+        </label>
+      </div>
+      <p className="microcopy">These credentials are encrypted and stored for your signed-in Podcasti account only. The secret values are never shown again after saving.</p>
       <div className="integration-actions">
         <button className="btn btn-primary" disabled={busy !== null || !spreakerClientId.trim() || !spreakerClientSecret.trim() || !spreakerAccessToken.trim()} onClick={() => void saveSpreakerApp()}>{busy === "spreaker" ? "Verifying…" : "Verify and save Spreaker credentials"}</button>
         {connectionFor("spreaker") && <button className="btn btn-outline" disabled={busy !== null} onClick={() => void remove("spreaker")}>Remove Spreaker connection</button>}
