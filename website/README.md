@@ -12,9 +12,9 @@ Next.js 15 website for Automate Spreaker Podcast, using Supabase Auth and Postgr
 - Account timezone defaults to Africa/Nairobi.
 - Eight evenly spaced schedule times are the editable starting schedule.
 
-## Vercel environment variables
+## Cloudflare Workers environment variables
 
-Set these in the Vercel project (and in `website/.env.local` for local development):
+The live website runs as the Cloudflare Worker `sportnewsauto`. Set production values in Cloudflare Dashboard → Workers & Pages → `sportnewsauto` → Settings → Variables and Secrets. Use `website/.env.local` for local development. Store private keys and encryption keys as **secrets**, not plain-text variables:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
@@ -35,8 +35,8 @@ Each user supplies their own Spreaker Developer App Client ID and Client Secret.
 
 Before the worker can process accounts, add these repository secrets:
 
-- `SUPABASE_SECRET_KEY` — the Supabase server-only Secret key (`sb_secret_...`). GitHub Actions only; never add it to website code or Vercel public variables. The worker also accepts the older `SUPABASE_SERVICE_ROLE_KEY` name for a legacy `service_role` key.
-- `CREDENTIAL_ENCRYPTION_KEY` — exactly the same base64 key as the Vercel value, so the worker can decrypt credentials saved by the website.
+- `SUPABASE_SECRET_KEY` — the Supabase server-only Secret key (`sb_secret_...`). GitHub Actions only; never add it to website code or Cloudflare plain-text variables. The worker also accepts the older `SUPABASE_SERVICE_ROLE_KEY` name for a legacy `service_role` key.
+- `CREDENTIAL_ENCRYPTION_KEY` — exactly the same base64 key as the Cloudflare Worker secret, so the worker can decrypt credentials saved by the website.
 - No shared Spreaker app secrets are needed by the worker. It reads each user's own encrypted app credentials and token bundle.
 
 The worker reads the existing `NEXT_PUBLIC_SUPABASE_URL` GitHub secret as `SUPABASE_URL`.
@@ -77,7 +77,7 @@ In Supabase Authentication → URL Configuration, set the Site URL to the deploy
 ## Still requires external setup
 
 - Run all Supabase migrations through 0010 in order. Migration 0009 installs the secure manual-run queue function; migration 0010 enforces the free-plan narration character limit.
-- Configure the GitHub App credentials as server-only Vercel environment variables and grant the installed App Actions: write permission for immediate manual-run dispatch. Redeploy the website after adding or changing these values.
+- Configure the GitHub App credentials as Cloudflare Worker variables/secrets and grant the installed App Actions: write permission for immediate manual-run dispatch. Save/deploy the Worker after adding or changing these values.
 - Each user registers the website callback URL in their own Spreaker Developer App, then saves their own Client ID and Client Secret under Dashboard → API Connections.
 - For a new deployment, add the GitHub Actions worker secrets listed above. The worker skips processing when required secrets are missing.
 - For each workspace, connect Spreaker, select a show, connect the chosen Groq or Gemini provider, enable news feeds and then explicitly enable scheduled generation. The worker checks the queue every five minutes, uses each workspace's saved 2/4/6/8-hour interval for scheduled runs, and enforces each workspace's daily limit.
