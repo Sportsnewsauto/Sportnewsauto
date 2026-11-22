@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import LegacyAutomationImport from "./legacy-automation-import";
+import ManualAutomationRun from "./manual-automation-run";
 
 export default async function Dashboard() {
   const supabase = await createClient();
@@ -17,6 +18,7 @@ export default async function Dashboard() {
   return (
     <section className="dash-main">
       <div className="dash-top"><div><h1>Dashboard overview</h1><p>Welcome, {user.email}. Your private workspace is ready.</p></div><span className="status">● Signed in</span></div>
+      <ManualAutomationRun />
       <div className="dash-cards">
         <div className="dash-card"><span>Episodes published today</span><strong>0 / {workspace?.daily_episode_limit ?? 1}</strong><small>{workspace?.plan === "admin" ? "Admin daily allowance" : "Free plan daily allowance"}</small></div>
         <div className="dash-card"><span>Account plan</span><strong>{workspace?.plan ? workspace.plan.charAt(0).toUpperCase() + workspace.plan.slice(1) : "Free"}</strong><small>{workspace?.plan === "admin" ? "Platform Admin workspace" : "Monthly subscription options coming later"}</small></div>

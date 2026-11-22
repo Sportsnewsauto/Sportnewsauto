@@ -3,7 +3,7 @@ name: Multi-tenant Podcast Worker
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "*/5 * * * *"
       timezone: "Africa/Nairobi"
 
 permissions:
@@ -47,15 +47,31 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install podcast dependencies
+      - name: Install lightweight queue dependencies
         if: steps.prerequisites.outputs.enabled == 'true'
+        run: python -m pip install --no-cache-dir requests cryptography
+
+      - name: Check for queued worker jobs
+        id: pending
+        if: steps.prerequisites.outputs.enabled == 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CREDENTIAL_ENCRYPTION_KEY: ${{ secrets.CREDENTIAL_ENCRYPTION_KEY }}
+        run: |
+          pending="$(python tenant_worker.py --check-pending)"
+          echo "has_work=$pending" >> "$GITHUB_OUTPUT"
+          echo "Queued work available: $pending"
+
+      - name: Install podcast pipeline dependencies
+        if: steps.prerequisites.outputs.enabled == 'true' && steps.pending.outputs.has_work == 'true'
         run: |
           python -m pip install --upgrade pip
           python -m pip install --no-cache-dir -r requirements.txt
-          python -m pip install --no-cache-dir cryptography requests
 
       - name: Run account-specific podcast jobs
-        if: steps.prerequisites.outputs.enabled == 'true'
+        if: steps.prerequisites.outputs.enabled == 'true' && steps.pending.outputs.has_work == 'true'
         env:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}

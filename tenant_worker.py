@@ -623,6 +623,12 @@ def process_queued_jobs(db: SupabaseRest):
                 if not workspace_rows or not settings_rows:
                     raise RuntimeError("Workspace settings were not found.")
                 workspace, settings = workspace_rows[0], settings_rows[0]
+                limit = max(1, int(workspace.get("daily_episode_limit") or 1))
+                used = daily_episode_count(db, owner_id, settings, workspace, now_utc())
+                if used >= limit:
+                    mark_job(db, job_id, "cancelled", f"Daily episode allowance reached ({used}/{limit}).")
+                    print(f"[{owner_id}] Cancelled queued job {job_id}: daily episode allowance reached ({used}/{limit}).", flush=True)
+                    continue
                 run_pipeline(db, owner_id, settings, workspace, job_id)
             else:
                 raise RuntimeError("Unsupported publishing job type.")
@@ -674,6 +680,21 @@ def enqueue_due_workspaces(db: SupabaseRest):
         print(f"[{owner_id}] Scheduled generation job for {iso_utc(due_slot)}.", flush=True)
 
 
+def check_pending_work() -> bool:
+    """Enqueue due scheduled slots, then report whether the worker has queued jobs."""
+    if len(CREDENTIAL_ENCRYPTION_KEY) != 32:
+        raise RuntimeError("CREDENTIAL_ENCRYPTION_KEY must decode to exactly 32 bytes.")
+    db = SupabaseRest()
+    enqueue_due_workspaces(db)
+    queued = db.select(
+        "publishing_jobs",
+        select="id",
+        status="eq.queued",
+        limit="1",
+    )
+    return bool(queued)
+
+
 def main():
     if len(CREDENTIAL_ENCRYPTION_KEY) != 32:
         raise RuntimeError("CREDENTIAL_ENCRYPTION_KEY must decode to exactly 32 bytes.")
@@ -685,7 +706,10 @@ def main():
 
 if __name__ == "__main__":
     try:
-        main()
+        if "--check-pending" in sys.argv:
+            print("true" if check_pending_work() else "false", flush=True)
+        else:
+            main()
     except Exception as exc:
         print(f"FATAL: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         sys.exit(1)

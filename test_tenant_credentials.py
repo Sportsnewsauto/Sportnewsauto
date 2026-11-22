@@ -9,6 +9,7 @@ import base64
 import json
 import os
 import unittest
+from unittest.mock import patch
 from datetime import datetime, timezone
 
 # tenant_worker reads its required environment at import time. Set harmless
@@ -79,6 +80,30 @@ class CredentialIsolationTests(unittest.TestCase):
             current,
         )
         self.assertEqual(slot, datetime(2026, 11, 22, 3, 0, tzinfo=timezone.utc))
+
+    @patch("tenant_worker.enqueue_due_workspaces")
+    @patch("tenant_worker.SupabaseRest")
+    def test_lightweight_queue_check_reports_pending_manual_jobs(self, database, enqueue):
+        db = database.return_value
+        db.select.return_value = [{"id": "queued-manual-job"}]
+
+        self.assertTrue(tenant_worker.check_pending_work())
+        enqueue.assert_called_once_with(db)
+        db.select.assert_called_once_with(
+            "publishing_jobs",
+            select="id",
+            status="eq.queued",
+            limit="1",
+        )
+
+    @patch("tenant_worker.enqueue_due_workspaces")
+    @patch("tenant_worker.SupabaseRest")
+    def test_lightweight_queue_check_skips_pipeline_when_queue_is_empty(self, database, enqueue):
+        db = database.return_value
+        db.select.return_value = []
+
+        self.assertFalse(tenant_worker.check_pending_work())
+        enqueue.assert_called_once_with(db)
 
     def test_credentials_are_requested_only_for_the_current_owner(self):
         db = WorkspaceScopedDatabase({
