@@ -37,7 +37,7 @@ export async function GET() {
     : null;
 
   const thirtyDaysAgo = new Date(now - 30 * 86400000).toISOString();
-  const [feedCount, manualCount, episode30Count, todayCount] = await Promise.all([
+  const [feedCount, freeEpisodeCount, episode30Count, todayCount] = await Promise.all([
     supabase.from("news_feeds").select("id", { count: "exact", head: true }).eq("owner_id", user.id),
     supabase.from("publishing_jobs").select("id", { count: "exact", head: true })
       .eq("owner_id", user.id).eq("job_type", "generate_episode")
@@ -78,13 +78,13 @@ export async function GET() {
     usage: {
       feeds: feedCount.count ?? 0,
       feeds_limit: isAdmin ? null : isPaid ? 20 : 2,
-      manual_runs_used: manualCount.count ?? 0,
-      manual_runs_limit: isPaid ? null : 3,
-      manual_runs_remaining: isPaid ? null : Math.max(0, 3 - (manualCount.count ?? 0)),
+      free_episodes_used: freeEpisodeCount.count ?? 0,
+      free_episodes_limit: isPaid ? null : 1,
+      free_episodes_remaining: isPaid ? null : Math.max(0, 1 - (freeEpisodeCount.count ?? 0)),
       episodes_last_30_days: episode30Count.count ?? 0,
-      episodes_30_day_limit: isAdmin ? null : isPaid ? 180 : 3,
+      episodes_30_day_limit: isAdmin ? null : isPaid ? 180 : null,
       episodes_today: todayCount.count ?? 0,
-      episodes_daily_limit: isAdmin ? null : isPaid ? 6 : 3,
+      episodes_daily_limit: isAdmin ? null : isPaid ? 6 : null,
     },
     mpesa_ready: isMpesaConfigured() && Boolean(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY),
     flutterwave_ready: isFlutterwaveConfigured() && Boolean(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY),

@@ -13,7 +13,7 @@ type BillingStatus = {
   pending_payment: { id: string; plan_interval: string; amount_ksh: number; payment_provider: "mpesa" | "flutterwave"; created_at: string; result_description?: string | null } | null;
   usage: {
     feeds: number; feeds_limit: number | null;
-    manual_runs_used: number; manual_runs_limit: number | null; manual_runs_remaining: number | null;
+    free_episodes_used: number; free_episodes_limit: number | null; free_episodes_remaining: number | null;
     episodes_last_30_days: number; episodes_30_day_limit: number | null;
     episodes_today: number; episodes_daily_limit: number | null;
   };
@@ -135,13 +135,13 @@ export default function SubscriptionManager() {
           ) : status.plan === "admin" ? (
             <p>The platform Admin workspace is not billed through customer subscriptions.</p>
           ) : (
-            <p>Free access includes three manual runs in total. Upgrade to enable automatic schedules and higher usage limits.</p>
+            <p>Free access includes one episode for the lifetime of the account. Upgrade to generate more episodes and enable automatic schedules.</p>
           )}
           <div className="billing-usage-grid">
-            <div><span>Manual runs</span><strong>{status.usage.manual_runs_limit === null ? "Paid access" : `${status.usage.manual_runs_used} / 3 used`}</strong></div>
+            <div><span>Free lifetime episode</span><strong>{status.plan === "admin" ? "Admin" : status.usage.free_episodes_limit === null ? "Paid access" : `${status.usage.free_episodes_used} / 1 used`}</strong></div>
             <div><span>RSS feeds</span><strong>{status.usage.feeds}{status.usage.feeds_limit === null ? " / Unlimited" : ` / ${status.usage.feeds_limit}`}</strong></div>
-            <div><span>Episodes today</span><strong>{status.usage.episodes_today}{status.usage.episodes_daily_limit === null ? " / Unlimited" : ` / ${status.usage.episodes_daily_limit}`}</strong></div>
-            <div><span>Episodes in 30 days</span><strong>{status.usage.episodes_last_30_days}{status.usage.episodes_30_day_limit === null ? " / Unlimited" : ` / ${status.usage.episodes_30_day_limit}`}</strong></div>
+            <div><span>Episodes today</span><strong>{status.usage.episodes_today}{status.plan === "admin" ? " / Unlimited" : status.is_paid ? ` / ${status.usage.episodes_daily_limit}` : ""}</strong></div>
+            <div><span>Episodes in 30 days</span><strong>{status.usage.episodes_last_30_days}{status.plan === "admin" ? " / Unlimited" : status.is_paid ? ` / ${status.usage.episodes_30_day_limit}` : ""}</strong></div>
           </div>
         </div>
 

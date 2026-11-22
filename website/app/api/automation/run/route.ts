@@ -12,7 +12,7 @@ export async function GET() {
     return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
 
-  const [jobResult, manualCountResult, workspaceResult] = await Promise.all([
+  const [jobResult, freeEpisodeCountResult, workspaceResult] = await Promise.all([
     supabase
       .from("publishing_jobs")
       .select("id,status,created_at,updated_at,payload")
@@ -23,11 +23,10 @@ export async function GET() {
       .limit(1)
       .maybeSingle(),
     supabase
-      .from("publishing_jobs")
+      .from("episodes")
       .select("id", { count: "exact", head: true })
       .eq("owner_id", user.id)
-      .eq("job_type", "generate_episode")
-      .filter("payload->>source", "eq", "manual"),
+      .in("status", ["draft", "queued", "processing", "ready", "published"]),
     supabase
       .from("workspaces")
       .select("plan,subscription_status,subscription_expires_at")
@@ -35,7 +34,7 @@ export async function GET() {
       .maybeSingle(),
   ]);
 
-  if (jobResult.error || manualCountResult.error || workspaceResult.error || !workspaceResult.data) {
+  if (jobResult.error || freeEpisodeCountResult.error || workspaceResult.error || !workspaceResult.data) {
     return NextResponse.json({ error: "Could not load your automation status. Refresh the dashboard." }, { status: 503 });
   }
 
@@ -47,17 +46,17 @@ export async function GET() {
     workspace.subscription_status === "active" &&
     expiry > Date.now()
   );
-  const used = manualCountResult.count ?? 0;
+  const used = freeEpisodeCountResult.count ?? 0;
   const payload = jobResult.data?.payload && typeof jobResult.data.payload === "object"
     ? jobResult.data.payload as Record<string, unknown>
     : {};
 
   return NextResponse.json({
     is_paid: isPaid,
-    manual_runs_used: used,
-    manual_runs_limit: isPaid ? null : 3,
-    manual_runs_remaining: isPaid ? null : Math.max(0, 3 - used),
-    trial_available: !isPaid && used < 3,
+    free_episodes_used: used,
+    free_episodes_limit: isPaid ? null : 1,
+    free_episodes_remaining: isPaid ? null : Math.max(0, 1 - used),
+    trial_available: !isPaid && used < 1,
     job: jobResult.data ? {
       id: jobResult.data.id,
       status: jobResult.data.status,

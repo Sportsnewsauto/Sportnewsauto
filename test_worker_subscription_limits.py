@@ -98,8 +98,21 @@ class SubscriptionEntitlementTests(unittest.TestCase):
     def test_paid_usage_allowance_defaults_to_six_daily_and_180_in_30_days(self):
         self.assertEqual(tenant_worker.workspace_episode_limits({}, "pro"), (6, 180))
 
-    def test_free_usage_allowance_fallback_remains_three(self):
-        self.assertEqual(tenant_worker.workspace_episode_limits({}, "free"), (3, 3))
+    def test_free_usage_allowance_is_one_daily_and_rolling_episode(self):
+        self.assertEqual(tenant_worker.workspace_episode_limits({}, "free"), (1, 1))
+
+    def test_free_lifetime_episode_lookup_uses_all_non_failed_episode_statuses(self):
+        db = RecordingDatabase(rows=[{"id": "episode-1"}])
+        self.assertTrue(tenant_worker.has_lifetime_episode(db, "owner-1"))
+        table, params = db.calls[0]
+        self.assertEqual(table, "episodes")
+        self.assertEqual(params["owner_id"], "eq.owner-1")
+        self.assertEqual(params["status"], "in.(draft,queued,processing,ready,published)")
+        self.assertEqual(params["limit"], "1")
+
+    def test_free_lifetime_episode_lookup_is_false_when_no_episode_exists(self):
+        db = RecordingDatabase(rows=[])
+        self.assertFalse(tenant_worker.has_lifetime_episode(db, "owner-1"))
 
     def test_admin_workspace_can_keep_reserved_voice(self):
         self.assertEqual(

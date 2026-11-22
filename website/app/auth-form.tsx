@@ -70,13 +70,20 @@ export default function AuthForm({ mode }: { mode: Mode }) {
     try {
       const supabase = createClient();
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
-        if (error) throw error;
-        if (!data.session) {
-          setMessage("Account created. Check your email for the confirmation link, then sign in.");
-        } else {
+        const response = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not create your account.");
+        if (result.session?.access_token && result.session?.refresh_token) {
+          const { error: sessionError } = await supabase.auth.setSession(result.session);
+          if (sessionError) throw sessionError;
           router.replace("/dashboard");
           router.refresh();
+        } else {
+          setMessage(result.message || "Account created. Check your email for the confirmation link, then sign in.");
         }
       } else {
         if (email.includes("@")) {
@@ -108,7 +115,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
         <Link href="/" className="brand"><span className="brand-mark">◉</span><span>Automate Spreaker Podcast</span></Link>
         <span className="eyebrow">{mode === "signup" ? "CREATE YOUR WORKSPACE" : "WELCOME BACK"}</span>
         <h1>{mode === "signup" ? "Create your account" : "Sign in"}</h1>
-        <p className="auth-description">{mode === "signup" ? "Start with your private podcast workspace. The free plan includes one episode per day." : "Sign in to manage your podcast workspace."}</p>
+        <p className="auth-description">{mode === "signup" ? "Start with your private podcast workspace. Free includes one lifetime episode. One Free account is allowed per public IP, and temporary email services are blocked." : "Sign in to manage your podcast workspace."}</p>
         {params.get("setup") === "supabase" && <p className="auth-notice">The website owner needs to finish Supabase setup before dashboard access is available.</p>}
         {params.get("reset") === "success" && <p className="auth-notice">Your password has been updated. Sign in with your new password.</p>}
         <form onSubmit={submit} className="auth-form">
