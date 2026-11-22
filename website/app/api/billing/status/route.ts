@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, isMpesaConfigured } from "@/lib/server/supabase-admin";
-import { isFlutterwaveCardCheckoutConfigured, isFlutterwaveConfigured } from "@/lib/server/flutterwave";
+import { isFlutterwaveConfigured } from "@/lib/server/flutterwave";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -88,7 +88,6 @@ export async function GET() {
     },
     mpesa_ready: isMpesaConfigured() && Boolean(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY),
     flutterwave_ready: isFlutterwaveConfigured() && Boolean(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY),
-    flutterwave_card_ready: isFlutterwaveCardCheckoutConfigured() && Boolean(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY),
     pending_payment: pendingPayment,
   }, { headers: { "Cache-Control": "no-store" } });
 }
