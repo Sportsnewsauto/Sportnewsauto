@@ -14,9 +14,7 @@ type WorkspaceSettings = {
   country: string;
   spreaker_show_id: string;
   timezone: string;
-  ai_provider: "groq" | "gemini";
-  ai_model: string;
-  ai_writing_instructions: string;
+  minimum_narration_characters: number;
   tts_provider: "kokoro";
   tts_voice: string;
   publishing_mode: "automatic" | "review";
@@ -32,9 +30,7 @@ const defaultSettings: WorkspaceSettings = {
   country: "KE",
   spreaker_show_id: "",
   timezone: "Africa/Nairobi",
-  ai_provider: "groq",
-  ai_model: "openai/gpt-oss-120b",
-  ai_writing_instructions: "",
+  minimum_narration_characters: 13500,
   tts_provider: "kokoro",
   tts_voice: "af_heart",
   publishing_mode: "automatic",
@@ -43,7 +39,7 @@ const defaultSettings: WorkspaceSettings = {
 };
 
 const sectionInfo: Record<Section, { title: string; intro: string }> = {
-  "ai-configuration": { title: "AI Configuration", intro: "Choose the AI provider and set how episode scripts should be written." },
+  "ai-configuration": { title: "AI Configuration", intro: "Set the minimum number of characters for each episode script." },
   "audio-settings": { title: "Audio Settings", intro: "Choose the platform-provided Kokoro voice used for narration." },
   "publishing-schedule": { title: "Publishing Schedule", intro: "Choose when episodes should be prepared and whether they publish automatically or wait for approval." },
   episodes: { title: "Episodes", intro: "View episode records belonging to your workspace." },
@@ -102,8 +98,25 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
       setSaving(false);
       return;
     }
+    if (
+      section === "ai-configuration" &&
+      (!Number.isInteger(form.minimum_narration_characters) ||
+        form.minimum_narration_characters < 5000 ||
+        form.minimum_narration_characters > 50000)
+    ) {
+      setError("Choose a script length between 5,000 and 50,000 characters.");
+      setSaving(false);
+      return;
+    }
+    const values = section === "ai-configuration"
+      ? {
+          owner_id: user.id,
+          minimum_narration_characters: form.minimum_narration_characters,
+          updated_at: new Date().toISOString(),
+        }
+      : { ...form, owner_id: user.id, updated_at: new Date().toISOString() };
     const { error: saveError } = await supabase.from("workspace_settings").upsert(
-      { ...form, owner_id: user.id, updated_at: new Date().toISOString() },
+      values,
       { onConflict: "owner_id" },
     );
     if (saveError) setError(saveError.message);
@@ -119,10 +132,19 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
       <div className="dash-top"><div><p className="section-kicker">WORKSPACE</p><h1>{info.title}</h1><p>{info.intro}</p></div><span className="pill">Configuration</span></div>
       <form className="panel section-form" onSubmit={save}>
         {section === "ai-configuration" && <>
-          <label>AI provider<select value={form.ai_provider} onChange={e => { const value = e.target.value as "groq" | "gemini"; update("ai_provider", value); update("ai_model", value === "groq" ? "openai/gpt-oss-120b" : "gemini-3.5-flash-lite"); }}><option value="groq">Groq</option><option value="gemini">Google Gemini</option></select></label>
-          <label>Model identifier<input required value={form.ai_model} onChange={e => update("ai_model", e.target.value)} /></label>
-          <label>Writing instructions<textarea rows={6} maxLength={5000} value={form.ai_writing_instructions} onChange={e => update("ai_writing_instructions", e.target.value)} placeholder="Example: Focus on verified sports news, explain abbreviations for narration, and avoid inventing quotes or statistics." /></label>
-          <Notice>API keys are managed separately in API Connections. Do not paste keys into this form.</Notice>
+          <label>Minimum script length (characters)
+            <input
+              type="number"
+              inputMode="numeric"
+              min={5000}
+              max={50000}
+              step={500}
+              required
+              value={form.minimum_narration_characters}
+              onChange={e => update("minimum_narration_characters", Number(e.target.value))}
+            />
+          </label>
+          <p className="microcopy">This is a minimum narration length, not an exact character count. Every account uses the same platform writing instructions and AI models. Connect your own Groq and/or Gemini API keys in API Connections.</p>
         </>}
         {section === "audio-settings" && <>
           <label>Text-to-speech provider<input value="Kokoro (provided by platform)" readOnly /></label>
