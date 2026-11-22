@@ -12,6 +12,19 @@ type DispatchConfig = {
   ref?: string;
 };
 
+async function describeGitHubFailure(response: Response): Promise<string> {
+  const body = await response.text();
+  let detail = body;
+  try {
+    const parsed = JSON.parse(body) as { message?: string };
+    detail = parsed.message ?? body;
+  } catch {
+    // Keep a short plain-text response when GitHub does not return JSON.
+  }
+  const requestId = response.headers.get("x-github-request-id");
+  return `HTTP ${response.status}${detail ? `: ${detail.slice(0, 300)}` : ""}${requestId ? ` (GitHub request ${requestId})` : ""}`;
+}
+
 function createAppJwt(appId: string, privateKey: string): string {
   const now = Math.floor(Date.now() / 1000);
   const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url");
@@ -64,12 +77,34 @@ export async function dispatchMultiTenantWorker(config: DispatchConfig = {}): Pr
       "X-GitHub-Api-Version": "2022-11-28",
     };
 
+    // Verify that the configured App ID and private key belong together.
+    const appResponse = await fetch(`${apiBase}/app`, {
+      headers,
+      cache: "no-store",
+    });
+    if (!appResponse.ok) {
+      console.error(
+        `Immediate worker dispatch could not authenticate the GitHub App (${await describeGitHubFailure(appResponse)}).`,
+      );
+      return { dispatched: false, reason: "failed" };
+    }
+
+    const app = await appResponse.json() as { id?: number; slug?: string };
+    if (String(app.id) !== appId) {
+      console.error(
+        `Immediate worker dispatch App ID mismatch (configured ${appId}, authenticated ${app.id ?? "unknown"}).`,
+      );
+      return { dispatched: false, reason: "failed" };
+    }
+
     const installationResponse = await fetch(
       `${apiBase}/repos/${owner}/${repo}/installation`,
       { headers, cache: "no-store" },
     );
     if (!installationResponse.ok) {
-      console.error(`Immediate worker dispatch could not find the GitHub App installation (HTTP ${installationResponse.status}).`);
+      console.error(
+        `Immediate worker dispatch could not find the GitHub App installation (${await describeGitHubFailure(installationResponse)}).`,
+      );
       return { dispatched: false, reason: "failed" };
     }
 
@@ -88,7 +123,9 @@ export async function dispatchMultiTenantWorker(config: DispatchConfig = {}): Pr
       },
     );
     if (!tokenResponse.ok) {
-      console.error(`Immediate worker dispatch could not create an installation token (HTTP ${tokenResponse.status}).`);
+      console.error(
+        `Immediate worker dispatch could not create an installation token (${await describeGitHubFailure(tokenResponse)}).`,
+      );
       return { dispatched: false, reason: "failed" };
     }
 
@@ -114,7 +151,9 @@ export async function dispatchMultiTenantWorker(config: DispatchConfig = {}): Pr
     );
 
     if (!dispatchResponse.ok) {
-      console.error(`GitHub rejected the immediate worker dispatch (HTTP ${dispatchResponse.status}). Check that the App has Actions: write permission.`);
+      console.error(
+        `GitHub rejected the immediate worker dispatch (${await describeGitHubFailure(dispatchResponse)}). Check that the App has Actions: write permission.`,
+      );
       return { dispatched: false, reason: "failed" };
     }
 
