@@ -188,6 +188,9 @@ export async function completeVerifiedFlutterwavePayment(reference: string, char
     .maybeSingle();
 
   if (paymentError || !payment || payment.status === "failed") return false;
+  if (payment.flutterwave_transaction_id && payment.flutterwave_transaction_id !== chargeId) {
+    return false;
+  }
 
   const envelope = await flutterwaveV4Request<FlutterwaveCharge>(
     `/charges/${encodeURIComponent(chargeId)}`,
