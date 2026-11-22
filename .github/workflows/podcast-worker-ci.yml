@@ -8,12 +8,14 @@ on:
       - "upload_spreaker.py"
       - "generate_script.py"
       - "generate_metadata.py"
+      - "test_worker_published_episode_recovery.py"
       - ".github/workflows/multi-tenant-podcast-worker.yml"
       - ".github/workflows/podcast-worker-ci.yml"
   pull_request:
     paths:
       - "tenant_worker.py"
       - "upload_spreaker.py"
+      - "test_worker_published_episode_recovery.py"
       - ".github/workflows/multi-tenant-podcast-worker.yml"
       - ".github/workflows/podcast-worker-ci.yml"
 
@@ -33,4 +35,4 @@ jobs:
       - name: Compile worker and upload scripts
         run: python -m py_compile tenant_worker.py upload_spreaker.py generate_script.py generate_metadata.py
       - name: Test customer credential isolation
-        run: python -m unittest -v test_tenant_credentials.py
+        run: python -m unittest -v test_tenant_credentials.py test_worker_published_episode_recovery.py

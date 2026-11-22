@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time as time_module
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -54,7 +55,14 @@ SCRIPT_FILES = [
 ]
 
 
+class SupabaseTransientError(RuntimeError):
+    """A retryable Supabase HTTP response, such as 429 or 5xx."""
+
+
 class SupabaseRest:
+    RETRYABLE_METHODS = {"GET", "PATCH", "DELETE"}
+    RETRYABLE_STATUSES = {408, 425, 429, 500, 502, 503, 504}
+
     def __init__(self) -> None:
         self.base = f"{SUPABASE_URL}/rest/v1"
         self.session = requests.Session()
@@ -69,28 +77,66 @@ class SupabaseRest:
             self.session.headers["Authorization"] = f"Bearer {SUPABASE_SECRET_KEY}"
 
     def request(self, method: str, table: str, *, params=None, body=None, prefer=None):
+        method = method.upper()
         headers = {}
         if prefer:
             headers["Prefer"] = prefer
-        response = self.session.request(
-            method,
-            f"{self.base}/{table}",
-            params=params,
-            json=body,
-            headers=headers,
-            timeout=(20, 120),
-        )
-        if not response.ok:
-            raise RuntimeError(
-                f"Supabase {method} {table} failed with HTTP {response.status_code}: "
-                f"{response.text[:1200]}"
-            )
-        if not response.text:
-            return []
-        try:
-            return response.json()
-        except ValueError:
-            return []
+        retry_safe = method in self.RETRYABLE_METHODS
+
+        for attempt in range(4):
+            try:
+                response = self.session.request(
+                    method,
+                    f"{self.base}/{table}",
+                    params=params,
+                    json=body,
+                    headers=headers,
+                    timeout=(20, 120),
+                )
+            except requests.exceptions.RequestException:
+                if not retry_safe or attempt == 3:
+                    raise
+                delay = min(2 ** attempt, 8)
+                print(
+                    f"Supabase {method} {table} timed out; retrying in {delay}s "
+                    f"(attempt {attempt + 2}/4).",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                time_module.sleep(delay)
+                continue
+
+            if retry_safe and response.status_code in self.RETRYABLE_STATUSES and attempt < 3:
+                retry_after = response.headers.get("Retry-After")
+                try:
+                    delay = min(max(int(retry_after), 1), 15) if retry_after else min(2 ** attempt, 8)
+                except ValueError:
+                    delay = min(2 ** attempt, 8)
+                print(
+                    f"Supabase {method} {table} returned HTTP {response.status_code}; "
+                    f"retrying in {delay}s (attempt {attempt + 2}/4).",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                time_module.sleep(delay)
+                continue
+
+            if not response.ok:
+                message = (
+                    f"Supabase {method} {table} failed with HTTP {response.status_code}: "
+                    f"{response.text[:1200]}"
+                )
+                if response.status_code in self.RETRYABLE_STATUSES:
+                    raise SupabaseTransientError(message)
+                raise RuntimeError(message)
+            if not response.text:
+                return []
+            try:
+                return response.json()
+            except ValueError:
+                return []
+
+        raise RuntimeError(f"Supabase {method} {table} failed after retry attempts.")
 
     def select(self, table: str, **params):
         return self.request("GET", table, params=params)
@@ -340,10 +386,77 @@ def workspace_ad_slots(db: SupabaseRest, owner_id: str) -> list[dict[str, int]]:
 
 
 def mark_job(db: SupabaseRest, job_id: str, status: str, error: str | None = None):
-    patch = {"status": status, "updated_at": iso_utc(now_utc())}
-    if error:
-        patch["last_error"] = error[:2000]
+    patch = {"status": status, "updated_at": iso_utc(now_utc()), "last_error": error[:2000] if error else None}
     db.patch("publishing_jobs", {"id": f"eq.{job_id}"}, patch)
+
+
+def find_episode_for_worker_job(db: SupabaseRest, owner_id: str, job_id: str):
+    return db.select(
+        "episodes",
+        select="id,spreaker_episode_id",
+        owner_id=f"eq.{owner_id}",
+        **{"source_data->>worker_job_id": f"eq.{job_id}"},
+        limit="1",
+    )
+
+
+def save_worker_episode(db: SupabaseRest, episode: dict[str, Any], job_id: str) -> None:
+    """Idempotently save an episode and resolve ambiguous POST timeouts by job ID."""
+    owner_id = episode["owner_id"]
+    for attempt in range(4):
+        existing = find_episode_for_worker_job(db, owner_id, job_id)
+        if existing:
+            db.patch(
+                "episodes",
+                {"id": f"eq.{existing[0]['id']}", "owner_id": f"eq.{owner_id}"},
+                {key: value for key, value in episode.items() if key != "owner_id"},
+            )
+            return
+
+        try:
+            db.insert("episodes", episode)
+            return
+        except (requests.exceptions.RequestException, SupabaseTransientError):
+            # A response timeout can happen after Postgres committed the row.
+            # Always check by job ID before repeating the insert.
+            existing = find_episode_for_worker_job(db, owner_id, job_id)
+            if existing:
+                db.patch(
+                    "episodes",
+                    {"id": f"eq.{existing[0]['id']}", "owner_id": f"eq.{owner_id}"},
+                    {key: value for key, value in episode.items() if key != "owner_id"},
+                )
+                return
+            if attempt == 3:
+                raise
+            delay = min(2 ** attempt, 8)
+            print(
+                f"Episode save response was uncertain; no row is visible yet. "
+                f"Retrying safely in {delay}s.",
+                file=sys.stderr,
+                flush=True,
+            )
+            time_module.sleep(delay)
+
+
+def checkpoint_published_episode(
+    db: SupabaseRest,
+    job_id: str,
+    job_payload: dict[str, Any],
+    episode: dict[str, Any],
+) -> dict[str, Any]:
+    """Persist the confirmed Spreaker result before writing the Episodes row."""
+    payload = dict(job_payload or {})
+    payload.update({
+        "worker_stage": "spreaker_published" if episode["status"] == "published" else "spreaker_review_ready",
+        "recovery_episode": episode,
+    })
+    db.patch(
+        "publishing_jobs",
+        {"id": f"eq.{job_id}"},
+        {"payload": payload, "updated_at": iso_utc(now_utc())},
+    )
+    return payload
 
 
 def create_schedule_job(db: SupabaseRest, owner_id: str, slot: datetime) -> None:
@@ -440,6 +553,7 @@ def run_pipeline(
     settings: dict[str, Any],
     workspace: dict[str, Any],
     job_id: str,
+    job_payload: dict[str, Any],
 ) -> None:
     credentials = load_credentials(db, owner_id)
     verified = connected_providers(db, owner_id)
@@ -542,7 +656,14 @@ def run_pipeline(
             "published_at": iso_utc(now_utc()) if published else None,
             "updated_at": iso_utc(now_utc()),
         }
-        db.insert("episodes", episode)
+        # Spreaker has already accepted the upload/publish request. Record
+        # a recovery checkpoint on the job before saving the Episodes row.
+        # If Supabase times out while writing the episode, the next worker run
+        # can finish the database save without generating or publishing again.
+        saved_payload = checkpoint_published_episode(db, job_id, job_payload, episode)
+        job_payload.clear()
+        job_payload.update(saved_payload)
+        save_worker_episode(db, episode, job_id)
         print(f"[{owner_id}] Episode completed: {episode['title']} ({episode['status']})", flush=True)
 
 
@@ -593,24 +714,50 @@ def process_publish_job(db: SupabaseRest, job: dict[str, Any]) -> None:
 
 
 def process_queued_jobs(db: SupabaseRest):
-    queued = db.select(
+    pending = db.select(
         "publishing_jobs",
         select="id,owner_id,job_type,status,payload",
-        status="eq.queued",
+        status="in.(queued,processing)",
         order="created_at.asc",
         limit="20",
     )
-    for job in queued:
+    for job in pending:
         job_id = job["id"]
-        claimed = db.patch(
-            "publishing_jobs",
-            {"id": f"eq.{job_id}", "status": "eq.queued"},
-            {"status": "processing", "updated_at": iso_utc(now_utc())},
-        )
-        if not claimed:
+        owner_id = job["owner_id"]
+        payload = job.get("payload") if isinstance(job.get("payload"), dict) else {}
+        recovery_episode = payload.get("recovery_episode")
+        recovery_stage = payload.get("worker_stage") in {"spreaker_published", "spreaker_review_ready"}
+        is_recovery = recovery_stage and isinstance(recovery_episode, dict)
+
+        # Only recover processing jobs that have a durable post-Spreaker
+        # checkpoint. Other processing jobs may still belong to an active run.
+        if job.get("status") == "processing" and not is_recovery:
             continue
+
+        if job.get("status") == "queued":
+            claimed = db.patch(
+                "publishing_jobs",
+                {"id": f"eq.{job_id}", "status": "eq.queued"},
+                {"status": "processing", "updated_at": iso_utc(now_utc())},
+            )
+            if not claimed:
+                continue
+
         try:
-            owner_id = job["owner_id"]
+            if is_recovery:
+                print(
+                    f"[{owner_id}] Recovering the saved Spreaker result for job {job_id}; "
+                    "the podcast will not be generated or uploaded again.",
+                    flush=True,
+                )
+                save_worker_episode(db, recovery_episode, job_id)
+                mark_job(db, job_id, "completed")
+                print(
+                    f"[{owner_id}] Recovered published episode {recovery_episode.get('spreaker_episode_id')}.",
+                    flush=True,
+                )
+                continue
+
             if job["job_type"] == "publish_episode":
                 process_publish_job(db, job)
             elif job["job_type"] == "generate_episode":
@@ -635,21 +782,70 @@ def process_queued_jobs(db: SupabaseRest):
                     mark_job(db, job_id, "cancelled", f"Daily episode allowance reached ({used}/{limit}).")
                     print(f"[{owner_id}] Cancelled queued job {job_id}: daily episode allowance reached ({used}/{limit}).", flush=True)
                     continue
-                run_pipeline(db, owner_id, settings, workspace, job_id)
+                run_pipeline(db, owner_id, settings, workspace, job_id, payload)
             else:
                 raise RuntimeError("Unsupported publishing job type.")
             mark_job(db, job_id, "completed")
         except Exception as exc:
             print(f"Job {job_id} failed: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+            # If Spreaker has confirmed an episode, never mark the job failed
+            # or re-run generation. Re-queue the checkpoint for DB-only recovery.
+            if payload.get("worker_stage") in {"spreaker_published", "spreaker_review_ready"} and isinstance(payload.get("recovery_episode"), dict):
+                mark_job(
+                    db,
+                    job_id,
+                    "queued",
+                    f"Spreaker completed the episode; database finalization will be retried: {exc}",
+                )
+                print(
+                    f"[{owner_id}] Spreaker succeeded; job {job_id} queued for database-only recovery.",
+                    flush=True,
+                )
+                continue
+
+            # If the checkpoint update may have timed out after Postgres committed it,
+            # read the job before deciding whether this was a real generation failure.
+            try:
+                current = db.select(
+                    "publishing_jobs",
+                    select="payload",
+                    id=f"eq.{job_id}",
+                    limit="1",
+                )
+                current_payload = current[0].get("payload") if current and isinstance(current[0].get("payload"), dict) else {}
+            except Exception:
+                current_payload = {}
+
+            if current_payload.get("worker_stage") in {"spreaker_published", "spreaker_review_ready"} and isinstance(current_payload.get("recovery_episode"), dict):
+                mark_job(
+                    db,
+                    job_id,
+                    "queued",
+                    f"Spreaker completed the episode; database finalization will be retried: {exc}",
+                )
+                print(
+                    f"[{owner_id}] Spreaker checkpoint recovered after a database response error; job queued for finalization.",
+                    flush=True,
+                )
+                continue
+
             mark_job(db, job_id, "failed", str(exc))
             if job.get("job_type") == "generate_episode":
-                db.insert("episodes", {
-                    "owner_id": job["owner_id"],
+                failure_episode = {
+                    "owner_id": owner_id,
                     "title": "Episode generation failed",
                     "description": str(exc)[:1000],
                     "status": "failed",
                     "source_data": {"worker_job_id": job_id},
-                })
+                }
+                try:
+                    save_worker_episode(db, failure_episode, job_id)
+                except Exception as save_error:
+                    print(
+                        f"Could not save failure detail for job {job_id}: {type(save_error).__name__}: {save_error}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
 
 
 def enqueue_due_workspaces(db: SupabaseRest):
@@ -698,7 +894,20 @@ def check_pending_work() -> bool:
         status="eq.queued",
         limit="1",
     )
-    return bool(queued)
+    if queued:
+        return True
+
+    # A runner can be interrupted after Spreaker publishes and after the
+    # recovery checkpoint is saved but before the Episodes row is finalized.
+    # Keep these jobs visible to the lightweight poller for DB-only recovery.
+    recoverable = db.select(
+        "publishing_jobs",
+        select="id",
+        status="eq.processing",
+        **{"payload->>worker_stage": "in.(spreaker_published,spreaker_review_ready)"},
+        limit="1",
+    )
+    return bool(recoverable)
 
 
 def main():
