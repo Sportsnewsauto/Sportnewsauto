@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       if (!meResponse.ok) return NextResponse.json({ error: "Spreaker rejected the saved token. Verify it again." }, { status: 422 });
       const mePayload = await meResponse.json();
       const userId = mePayload?.response?.user?.user_id;
-      if (!userId || !/^\\d+$/.test(String(userId))) {
+      if (!userId || !/^\d+$/.test(String(userId))) {
         return NextResponse.json({ error: "Spreaker did not return a valid account ID." }, { status: 502 });
       }
 
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
         const showsPayload = await showsResponse.json();
         const items = Array.isArray(showsPayload?.response?.items) ? showsPayload.response.items : [];
         shows.push(...items
-          .filter((item: any) => item && /^\\d+$/.test(String(item.show_id)) && typeof item.title === "string")
+          .filter((item: any) => item && /^\d+$/.test(String(item.show_id)) && typeof item.title === "string")
           .map((item: any) => ({
             show_id: String(item.show_id),
             title: item.title,
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
 
   if (input.provider === "spreaker" && input.action === "save-show") {
     const showId = typeof input.showId === "string" ? input.showId.trim() : "";
-    if (!/^\\d{1,20}$/.test(showId)) {
+    if (!/^\d{1,20}$/.test(showId)) {
       return NextResponse.json({ error: "Enter a valid numeric Spreaker Show ID." }, { status: 400 });
     }
 
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
       }
       const mePayload = await meResponse.json();
       const userId = mePayload?.response?.user?.user_id;
-      if (!userId || !/^\\d+$/.test(String(userId))) {
+      if (!userId || !/^\d+$/.test(String(userId))) {
         return NextResponse.json({ error: "Spreaker did not return a valid account ID." }, { status: 502 });
       }
 
