@@ -10,7 +10,7 @@ type BillingStatus = {
   days_remaining: number | null;
   mpesa_ready: boolean;
   flutterwave_ready: boolean;
-  pending_payment: { id: string; plan_interval: string; amount_ksh: number; payment_provider: "mpesa" | "flutterwave"; created_at: string } | null;
+  pending_payment: { id: string; plan_interval: string; amount_ksh: number; payment_provider: "mpesa" | "flutterwave"; created_at: string; result_description?: string | null } | null;
   usage: {
     feeds: number; feeds_limit: number | null;
     manual_runs_used: number; manual_runs_limit: number | null; manual_runs_remaining: number | null;
@@ -178,6 +178,7 @@ export default function SubscriptionManager() {
             </div>
             {status.pending_payment && <div className="auth-notice" style={{ marginTop: 16 }}>
               {status.pending_payment.payment_provider === "flutterwave" ? "Flutterwave M-Pesa" : "Safaricom M-Pesa"} payment pending for the {status.pending_payment.plan_interval} plan (KSh {status.pending_payment.amount_ksh.toLocaleString()}). Complete the payment on your phone, then refresh this page to check the result.
+              {status.pending_payment.payment_provider === "flutterwave" && status.pending_payment.result_description && <p className="microcopy">{status.pending_payment.result_description}</p>}
             </div>}
             <div className="integration-actions" style={{ marginTop: 14 }}>
               <button className="btn btn-outline" onClick={() => void refresh(true)} disabled={refreshing}>{refreshing ? "Refreshing…" : "Refresh payment status"}</button>
