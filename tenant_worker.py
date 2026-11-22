@@ -42,7 +42,6 @@ KOKORO_ENGLISH_VOICES = frozenset({
     "bf_alice", "bf_emma", "bf_isabella", "bf_lily",
     "bm_daniel", "bm_fable", "bm_george", "bm_lewis",
 })
-ADMIN_ONLY_KOKORO_VOICES = frozenset({"af_heart", "am_michael"})
 DEFAULT_CUSTOMER_KOKORO_VOICE = "af_bella"
 PUBLISHING_INTERVAL_OPTIONS = frozenset({2, 4, 6, 8})
 SCRIPT_FILES = [
@@ -535,8 +534,6 @@ def workspace_kokoro_voice(settings: dict[str, Any], workspace_plan: str) -> str
     if workspace_plan == "free":
         return DEFAULT_CUSTOMER_KOKORO_VOICE
     if voice not in KOKORO_ENGLISH_VOICES:
-        return DEFAULT_CUSTOMER_KOKORO_VOICE
-    if voice in ADMIN_ONLY_KOKORO_VOICES and workspace_plan != "admin":
         return DEFAULT_CUSTOMER_KOKORO_VOICE
     return voice
 
