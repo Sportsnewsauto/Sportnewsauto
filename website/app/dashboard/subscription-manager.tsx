@@ -9,7 +9,8 @@ type BillingStatus = {
   subscription_expires_at: string | null;
   days_remaining: number | null;
   mpesa_ready: boolean;
-  pending_payment: { id: string; plan_interval: string; amount_ksh: number; created_at: string } | null;
+  flutterwave_ready: boolean;
+  pending_payment: { id: string; plan_interval: string; amount_ksh: number; payment_provider: "mpesa" | "flutterwave"; created_at: string } | null;
   usage: {
     feeds: number; feeds_limit: number | null;
     manual_runs_used: number; manual_runs_limit: number | null; manual_runs_remaining: number | null;
@@ -42,6 +43,37 @@ export default function SubscriptionManager() {
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  useEffect(() => {
+    const result = new URLSearchParams(window.location.search).get("payment");
+    if (result === "success") {
+      setNotice("Flutterwave confirmed your payment. Your Podcasti subscription is active.");
+    } else if (result === "pending") {
+      setNotice("Flutterwave has returned you to Podcasti, but payment confirmation is still pending. Refresh this page shortly.");
+    } else if (result === "cancelled") {
+      setNotice("Checkout was cancelled or not completed. No subscription was activated.");
+    }
+  }, []);
+
+  async function startFlutterwave(interval: "monthly" | "yearly") {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const response = await fetch("/api/billing/flutterwave", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ interval, phone }),
+      });
+      const data = await response.json();
+      if (!response.ok || typeof data.checkout_url !== "string") {
+        throw new Error(data.error || "Could not start Flutterwave checkout.");
+      }
+      setNotice("Opening Flutterwave secure checkout…");
+      window.location.assign(data.checkout_url);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not start Flutterwave checkout.");
+      setBusy(false);
+    }
+  }
 
   async function startPayment(interval: "monthly" | "yearly") {
     setBusy(true); setError(""); setNotice("");
@@ -117,7 +149,10 @@ export default function SubscriptionManager() {
                 <div className="price">KSh 3,000 <small>/ month</small></div>
                 <p><del>KSh 6,000</del> · 50% off</p>
                 <ul><li>Up to 3 episodes per day</li><li>90 episodes per rolling 30 days</li><li>20 RSS feeds</li><li>Up to 50,000 script characters</li><li>All standard Podcasti voices</li><li>Automatic scheduling and manual runs</li></ul>
-                <button className="btn btn-primary" disabled={!status.mpesa_ready || busy} onClick={() => void startPayment("monthly")}>Pay KSh 3,000 with M-Pesa</button>
+                <div className="integration-actions">
+                  {status.flutterwave_ready && <button className="btn btn-primary" disabled={busy} onClick={() => void startFlutterwave("monthly")}>Pay online with Flutterwave</button>}
+                  {status.mpesa_ready && <button className="btn btn-outline" disabled={busy} onClick={() => void startPayment("monthly")}>Pay directly with M-Pesa</button>}
+                </div>
               </article>
               <article className="plan featured">
                 <span className="eyebrow">BEST VALUE</span>
@@ -126,18 +161,22 @@ export default function SubscriptionManager() {
                 <div className="price">KSh 15,000 <small>/ year</small></div>
                 <p><del>KSh 30,000</del> · 50% off</p>
                 <ul><li>Everything in Monthly</li><li>12 months of access</li><li>Equivalent to KSh 1,250 per month</li><li>Save KSh 21,000 versus 12 monthly payments</li></ul>
-                <button className="btn btn-primary" disabled={!status.mpesa_ready || busy} onClick={() => void startPayment("yearly")}>Pay KSh 15,000 with M-Pesa</button>
+                <div className="integration-actions">
+                  {status.flutterwave_ready && <button className="btn btn-primary" disabled={busy} onClick={() => void startFlutterwave("yearly")}>Pay online with Flutterwave</button>}
+                  {status.mpesa_ready && <button className="btn btn-outline" disabled={busy} onClick={() => void startPayment("yearly")}>Pay directly with M-Pesa</button>}
+                </div>
               </article>
             </div>
             <div className="section-form" style={{ marginTop: 20 }}>
-              <label>M-Pesa phone number
+              <label>Phone number (optional; used if you choose M-Pesa at checkout)
                 <input inputMode="tel" autoComplete="tel" value={phone} onChange={event => setPhone(event.target.value)} placeholder="0712345678" />
               </label>
-              {!status.mpesa_ready && <p className="auth-notice">M-Pesa checkout is not configured yet. The administrator must add the Safaricom Daraja credentials and server-side Supabase key before customers can pay.</p>}
-              {status.mpesa_ready && <p className="microcopy">A payment prompt will appear on this phone. Enter your M-Pesa PIN to approve it. Podcasti activates your plan only after Safaricom confirms the payment.</p>}
+              {!status.flutterwave_ready && !status.mpesa_ready && <p className="auth-notice">Online payments are not configured yet. The administrator must add the Flutterwave secret and webhook hash, or Safaricom Daraja credentials, in Cloudflare.</p>}
+              {status.flutterwave_ready && <p className="microcopy">Flutterwave checkout accepts Kenyan card and M-Pesa payments. You will be redirected to Flutterwave’s secure hosted checkout. Podcasti activates the subscription only after a server-side transaction verification.</p>}
+              {status.mpesa_ready && <p className="microcopy">Direct Safaricom M-Pesa STK checkout is also available when configured.</p>}
             </div>
             {status.pending_payment && <div className="auth-notice" style={{ marginTop: 16 }}>
-              M-Pesa payment pending for the {status.pending_payment.plan_interval} plan (KSh {status.pending_payment.amount_ksh.toLocaleString()}). Complete the prompt on your phone, then refresh this page to check the result.
+              {status.pending_payment.payment_provider === "flutterwave" ? "Flutterwave checkout" : "Safaricom M-Pesa"} payment pending for the {status.pending_payment.plan_interval} plan (KSh {status.pending_payment.amount_ksh.toLocaleString()}). Complete the payment, then refresh this page to check the result.
             </div>}
             <div className="integration-actions" style={{ marginTop: 14 }}>
               <button className="btn btn-outline" onClick={() => void refresh(true)} disabled={refreshing}>{refreshing ? "Refreshing…" : "Refresh payment status"}</button>
@@ -148,7 +187,7 @@ export default function SubscriptionManager() {
             <p>Three lifetime manual runs, up to 5,000 script characters per episode, two RSS feeds, one voice (Bella), no recurring schedule, and no more than three manual run attempts in total. Free access does not renew automatically.</p>
           </div>
         </>}
-        <p className="microcopy">Payments are requested through Safaricom M-Pesa. Monthly and yearly subscriptions must be renewed by starting another payment; automatic M-Pesa deductions are not enabled.</p>
+        <p className="microcopy">Payments can be completed through Flutterwave (card or M-Pesa) or directly through Safaricom M-Pesa. Monthly and yearly subscriptions are renewed by starting another payment; automatic recurring deductions are not enabled.</p>
       </>}
     </section>
   );
