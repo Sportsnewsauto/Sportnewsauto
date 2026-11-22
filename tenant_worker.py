@@ -525,6 +525,11 @@ PLATFORM_SECRET_ENV_VARS = (
 )
 
 
+def workspace_feeds_for_plan(feeds: list[dict[str, str]], workspace_plan: str) -> list[dict[str, str]]:
+    """Free accounts may use only the first two saved RSS feeds."""
+    return feeds[:2] if workspace_plan == "free" else feeds
+
+
 def workspace_kokoro_voice(settings: dict[str, Any], workspace_plan: str) -> str:
     voice = str(settings.get("tts_voice") or DEFAULT_CUSTOMER_KOKORO_VOICE)
     if workspace_plan == "free":
@@ -605,17 +610,14 @@ def run_pipeline(
     if not (("groq" in verified and groq_key) or ("gemini" in verified and gemini_key)):
         raise RuntimeError("Connect and verify your own Groq or Gemini API key in API Connections before enabling automation.")
 
+    workspace_plan = effective_workspace_plan(workspace, now_utc())
     spreaker_token, _ = usable_spreaker_token(db, owner_id, credentials["spreaker"])
-    feeds = workspace_feeds(db, owner_id)
-    if workspace_plan == "free":
-        # Keep older accounts within the same two-feed limit as new Free users.
-        feeds = feeds[:2]
+    feeds = workspace_feeds_for_plan(workspace_feeds(db, owner_id), workspace_plan)
     if not feeds:
         raise RuntimeError("Add and enable at least one sports news feed.")
     ad_slots = workspace_ad_slots(db, owner_id)
 
     history = covered_history(db, owner_id)
-    workspace_plan = effective_workspace_plan(workspace, now_utc())
     maximum_narration_characters = 5000 if workspace_plan == "free" else 50000
     minimum_narration_characters = int(settings.get("minimum_narration_characters") or 13500)
     minimum_narration_characters = min(max(5000, minimum_narration_characters), maximum_narration_characters)
@@ -910,7 +912,7 @@ def enqueue_due_workspaces(db: SupabaseRest):
     current = now_utc()
     workspaces = db.select(
         "workspaces",
-        select="owner_id,plan,daily_episode_limit,timezone",
+        select="owner_id,plan,daily_episode_limit,monthly_episode_limit,subscription_status,subscription_expires_at,timezone",
         limit="1000",
     )
     for workspace in workspaces:
