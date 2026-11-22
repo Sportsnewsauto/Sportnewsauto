@@ -17,13 +17,14 @@ const workspaceLinks = [
   { icon: "?", label: "Support", href: "/dashboard/support" },
 ];
 
-export default function DashboardSidebar() {
+export default function DashboardSidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
 
   return (
     <aside className="sidebar">
       <Link href="/" className="brand"><span className="brand-mark">◉</span><span>Automate Spreaker</span></Link>
       <nav className="sidebar-nav" aria-label="Dashboard navigation">
+        {isAdmin && <div className="side-label">PLATFORM ADMIN · FULL ACCESS</div>}
         <div className="side-label">WORKSPACE</div>
         {workspaceLinks.map((item) => {
           const active = item.href === "/dashboard"
