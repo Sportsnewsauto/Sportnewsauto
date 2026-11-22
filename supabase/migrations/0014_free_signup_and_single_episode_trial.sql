@@ -166,7 +166,14 @@ begin
     return new;
   end if;
 
+  -- Enforce the cap for new episodes and for failed rows being retried.
+  -- Do not block status updates on older episodes created while this account
+  -- had a paid subscription, after that subscription later expires.
   if new.status in ('draft', 'queued', 'processing', 'ready', 'published')
+    and (
+      tg_op = 'INSERT'
+      or (tg_op = 'UPDATE' and old.status = 'failed')
+    )
     and exists (
       select 1
       from public.episodes as e
