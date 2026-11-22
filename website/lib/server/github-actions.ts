@@ -52,7 +52,10 @@ export async function dispatchMultiTenantWorker(config: DispatchConfig = {}): Pr
   }
 
   try {
-    const privateKey = rawPrivateKey!.replace(/\\n/g, "\n");
+    const privateKey = rawPrivateKey!
+      .replace(/\\r?\\n/g, "\n")
+      .replace(/\r\n?/g, "\n")
+      .trim();
     const appJwt = createAppJwt(appId!, privateKey);
     const apiBase = "https://api.github.com";
     const headers = {
