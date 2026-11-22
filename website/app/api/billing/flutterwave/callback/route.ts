@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { completeVerifiedFlutterwavePayment } from "@/lib/server/flutterwave";
+import {
+  completeVerifiedFlutterwaveCardPayment,
+  completeVerifiedFlutterwavePayment,
+} from "@/lib/server/flutterwave";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +32,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const completed = await completeVerifiedFlutterwavePayment(reference, chargeId);
+    const completed = reference.startsWith("pc")
+      ? await completeVerifiedFlutterwaveCardPayment(reference, chargeId)
+      : await completeVerifiedFlutterwavePayment(reference, chargeId);
     return subscriptionRedirect(request, completed ? "success" : "pending");
   } catch {
     return subscriptionRedirect(request, "pending");
