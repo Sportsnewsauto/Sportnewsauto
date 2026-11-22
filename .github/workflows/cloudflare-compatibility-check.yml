@@ -1,0 +1,34 @@
+name: Cloudflare Compatibility Check
+
+on:
+  push:
+    branches:
+      - cloudflare-migration-check
+    paths:
+      - "website/**"
+      - ".github/workflows/cloudflare-compatibility-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vinext-compatibility:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install existing application dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Check Next.js compatibility with Cloudflare vinext
+        run: npx --yes vinext check
