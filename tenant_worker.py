@@ -311,6 +311,28 @@ def due_schedule_slot(settings: dict[str, Any], workspace: dict[str, Any], curre
     return max(candidates).astimezone(timezone.utc)
 
 
+def effective_workspace_plan(workspace: dict[str, Any], current: datetime | None = None) -> str:
+    """Resolve an account's paid status from trusted subscription fields."""
+    plan = str(workspace.get("plan") or "free")
+    if plan == "admin":
+        return "admin"
+    if plan not in {"pro", "business"} or workspace.get("subscription_status") != "active":
+        return "free"
+    expiry_value = workspace.get("subscription_expires_at")
+    if not expiry_value:
+        return "free"
+    try:
+        expiry = datetime.fromisoformat(str(expiry_value).replace("Z", "+00:00"))
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return "free"
+    now = current or now_utc()
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    return "pro" if expiry > now else "free"
+
+
 def daily_episode_count(db: SupabaseRest, owner_id: str, settings: dict[str, Any], workspace: dict[str, Any], current: datetime) -> int:
     zone = workspace_timezone(settings, workspace)
     local_midnight = datetime.combine(current.astimezone(zone).date(), time.min, tzinfo=zone)
@@ -319,6 +341,19 @@ def daily_episode_count(db: SupabaseRest, owner_id: str, settings: dict[str, Any
         select="id",
         owner_id=f"eq.{owner_id}",
         created_at=f"gte.{iso_utc(local_midnight)}",
+        status="in.(draft,queued,processing,ready,published)",
+        limit="1000",
+    )
+    return len(rows)
+
+
+def rolling_episode_count(db: SupabaseRest, owner_id: str, current: datetime) -> int:
+    """Count active/successful episodes in the previous 30 days."""
+    rows = db.select(
+        "episodes",
+        select="id",
+        owner_id=f"eq.{owner_id}",
+        created_at=f"gte.{iso_utc(current - timedelta(days=30))}",
         status="in.(draft,queued,processing,ready,published)",
         limit="1000",
     )
@@ -492,6 +527,8 @@ PLATFORM_SECRET_ENV_VARS = (
 
 def workspace_kokoro_voice(settings: dict[str, Any], workspace_plan: str) -> str:
     voice = str(settings.get("tts_voice") or DEFAULT_CUSTOMER_KOKORO_VOICE)
+    if workspace_plan == "free":
+        return DEFAULT_CUSTOMER_KOKORO_VOICE
     if voice not in KOKORO_ENGLISH_VOICES:
         return DEFAULT_CUSTOMER_KOKORO_VOICE
     if voice in ADMIN_ONLY_KOKORO_VOICES and workspace_plan != "admin":
@@ -575,7 +612,7 @@ def run_pipeline(
     ad_slots = workspace_ad_slots(db, owner_id)
 
     history = covered_history(db, owner_id)
-    workspace_plan = str(workspace.get("plan") or "free")
+    workspace_plan = effective_workspace_plan(workspace, now_utc())
     maximum_narration_characters = 5000 if workspace_plan == "free" else 50000
     minimum_narration_characters = int(settings.get("minimum_narration_characters") or 13500)
     minimum_narration_characters = min(max(5000, minimum_narration_characters), maximum_narration_characters)
@@ -602,7 +639,7 @@ def run_pipeline(
         env = build_workspace_process_env(
             os.environ,
             settings=settings,
-            workspace_plan=str(workspace.get("plan") or "free"),
+            workspace_plan=workspace_plan,
             groq_key=groq_key,
             gemini_key=gemini_key,
             verified_providers=verified,
@@ -763,7 +800,7 @@ def process_queued_jobs(db: SupabaseRest):
             elif job["job_type"] == "generate_episode":
                 workspace_rows = db.select(
                     "workspaces",
-                    select="owner_id,plan,daily_episode_limit,timezone",
+                    select="owner_id,plan,daily_episode_limit,monthly_episode_limit,subscription_status,subscription_expires_at,timezone",
                     owner_id=f"eq.{owner_id}",
                     limit="1",
                 )
@@ -776,12 +813,30 @@ def process_queued_jobs(db: SupabaseRest):
                 if not workspace_rows or not settings_rows:
                     raise RuntimeError("Workspace settings were not found.")
                 workspace, settings = workspace_rows[0], settings_rows[0]
-                limit = max(1, int(workspace.get("daily_episode_limit") or 1))
-                used = daily_episode_count(db, owner_id, settings, workspace, now_utc())
-                if used >= limit:
-                    mark_job(db, job_id, "cancelled", f"Daily episode allowance reached ({used}/{limit}).")
-                    print(f"[{owner_id}] Cancelled queued job {job_id}: daily episode allowance reached ({used}/{limit}).", flush=True)
+                current = now_utc()
+                plan = effective_workspace_plan(workspace, current)
+                is_manual = payload.get("source") == "manual"
+
+                if not is_manual and plan not in {"pro", "admin"}:
+                    mark_job(db, job_id, "cancelled", "Scheduled automation requires an active paid subscription.")
+                    print(f"[{owner_id}] Cancelled scheduled job {job_id}: no active paid plan.", flush=True)
                     continue
+
+                if plan != "admin":
+                    limit = max(1, int(workspace.get("daily_episode_limit") or 3))
+                    used_today = daily_episode_count(db, owner_id, settings, workspace, current)
+                    if used_today >= limit:
+                        mark_job(db, job_id, "cancelled", f"Daily episode allowance reached ({used_today}/{limit}).")
+                        print(f"[{owner_id}] Cancelled queued job {job_id}: daily episode allowance reached ({used_today}/{limit}).", flush=True)
+                        continue
+
+                    monthly_limit = max(1, int(workspace.get("monthly_episode_limit") or (3 if plan == "free" else 90)))
+                    used_30_days = rolling_episode_count(db, owner_id, current)
+                    if used_30_days >= monthly_limit:
+                        mark_job(db, job_id, "cancelled", f"Rolling 30-day episode allowance reached ({used_30_days}/{monthly_limit}).")
+                        print(f"[{owner_id}] Cancelled queued job {job_id}: 30-day episode allowance reached ({used_30_days}/{monthly_limit}).", flush=True)
+                        continue
+
                 run_pipeline(db, owner_id, settings, workspace, job_id, payload)
             else:
                 raise RuntimeError("Unsupported publishing job type.")
@@ -868,16 +923,25 @@ def enqueue_due_workspaces(db: SupabaseRest):
         if not settings_rows:
             continue
         settings = settings_rows[0]
-        if not settings.get("automation_enabled", False):
+        plan = effective_workspace_plan(workspace, current)
+        # Free workspaces can use their three manual runs but never receive
+        # recurring jobs, even if an older settings row still says enabled.
+        if plan not in {"pro", "admin"} or not settings.get("automation_enabled", False):
             continue
         due_slot = due_schedule_slot(settings, workspace, current)
         if due_slot is None:
             continue
-        limit = max(1, int(workspace.get("daily_episode_limit") or 1))
-        used = daily_episode_count(db, owner_id, settings, workspace, current)
-        if used >= limit:
-            print(f"[{owner_id}] Daily episode limit reached ({used}/{limit}); skipping.", flush=True)
-            continue
+        if plan != "admin":
+            limit = max(1, int(workspace.get("daily_episode_limit") or 3))
+            used_today = daily_episode_count(db, owner_id, settings, workspace, current)
+            used_30_days = rolling_episode_count(db, owner_id, current)
+            monthly_limit = max(1, int(workspace.get("monthly_episode_limit") or 90))
+            if used_today >= limit:
+                print(f"[{owner_id}] Daily episode limit reached ({used_today}/{limit}); skipping.", flush=True)
+                continue
+            if used_30_days >= monthly_limit:
+                print(f"[{owner_id}] Rolling 30-day episode limit reached ({used_30_days}/{monthly_limit}); skipping.", flush=True)
+                continue
         create_schedule_job(db, owner_id, due_slot)
         print(f"[{owner_id}] Scheduled generation job for {iso_utc(due_slot)}.", flush=True)
 
