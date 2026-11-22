@@ -47,7 +47,11 @@ export default async function Dashboard() {
   if (error || !user) redirect("/login");
   const { data: workspace } = await supabase.from("workspaces").select("name, plan, daily_episode_limit, timezone").eq("owner_id", user.id).single();
   const { data: settings } = await supabase.from("workspace_settings").select("automation_enabled,publishing_mode,publishing_interval_hours,timezone").maybeSingle();
-  const scheduleTimezone = settings?.timezone || workspace?.timezone || "Africa/Nairobi";
+  const requestedTimezone = settings?.timezone || workspace?.timezone || "Africa/Nairobi";
+  const scheduleTimezone = (() => {
+    try { new Intl.DateTimeFormat("en", { timeZone: requestedTimezone }); return requestedTimezone; }
+    catch { return "Africa/Nairobi"; }
+  })();
   const scheduleInterval = Number(settings?.publishing_interval_hours) || 8;
   const estimatedRun = settings?.automation_enabled
     ? new Intl.DateTimeFormat("en-KE", { dateStyle: "medium", timeStyle: "short", timeZone: scheduleTimezone }).format(nextEstimatedRun(scheduleTimezone, scheduleInterval))
