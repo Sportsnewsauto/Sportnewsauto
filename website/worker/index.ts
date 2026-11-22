@@ -14,11 +14,17 @@ type PodcastiScheduledController = {
 };
 
 /**
- * Keep the Vinext web app as the HTTP handler and add Cloudflare's native
- * Cron Trigger as the recurring wake-up for the existing podcast processor.
+ * Keep Vinext as the HTTP handler and add Cloudflare's native Cron Trigger
+ * as the recurring wake-up for the existing multi-tenant podcast processor.
  */
 export default {
-  fetch: handler.fetch,
+  fetch(
+    request: Parameters<typeof handler.fetch>[0],
+    env: Parameters<typeof handler.fetch>[1],
+    ctx: Parameters<typeof handler.fetch>[2],
+  ) {
+    return handler.fetch(request, env, ctx);
+  },
 
   async scheduled(controller: PodcastiScheduledController, env: PodcastiWorkerEnv) {
     const scheduledAt = new Date(controller.scheduledTime).toISOString();
