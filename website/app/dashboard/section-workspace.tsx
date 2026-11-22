@@ -178,31 +178,42 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
       setSaving(false);
       return;
     }
-    const values = section === "ai-configuration"
-      ? {
+    let saveError: { message: string } | null = null;
+    if (section === "ai-configuration") {
+      const result = await supabase.from("workspace_settings").upsert(
+        {
           owner_id: user.id,
           minimum_narration_characters: form.minimum_narration_characters,
           updated_at: new Date().toISOString(),
-        }
-      : section === "audio-settings"
-        ? {
-            owner_id: user.id,
-            tts_provider: "kokoro",
-            tts_voice: form.tts_voice,
-            updated_at: new Date().toISOString(),
-          }
-        : {
-            owner_id: user.id,
-            automation_enabled: form.automation_enabled,
-            publishing_mode: form.publishing_mode,
-            timezone: form.timezone,
-            publishing_interval_hours: form.publishing_interval_hours,
-            updated_at: new Date().toISOString(),
-          };
-    const { error: saveError } = await supabase.from("workspace_settings").upsert(
-      values,
-      { onConflict: "owner_id" },
-    );
+        },
+        { onConflict: "owner_id" },
+      );
+      saveError = result.error;
+    } else if (section === "audio-settings") {
+      const result = await supabase.from("workspace_settings").upsert(
+        {
+          owner_id: user.id,
+          tts_provider: "kokoro",
+          tts_voice: form.tts_voice,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "owner_id" },
+      );
+      saveError = result.error;
+    } else {
+      const result = await supabase.from("workspace_settings").upsert(
+        {
+          owner_id: user.id,
+          automation_enabled: form.automation_enabled,
+          publishing_mode: form.publishing_mode,
+          timezone: form.timezone,
+          publishing_interval_hours: form.publishing_interval_hours,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "owner_id" },
+      );
+      saveError = result.error;
+    }
     if (saveError) setError(saveError.message);
     else setNotice("Your settings have been saved.");
     setSaving(false);
