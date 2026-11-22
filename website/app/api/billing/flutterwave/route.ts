@@ -9,16 +9,31 @@ export const dynamic = "force-dynamic";
 
 type HostedCheckoutData = { link?: string };
 
-function validFlutterwaveCheckout(value: unknown): string | null {
-  if (typeof value !== "string") return null;
+function parseFlutterwaveCheckout(value: unknown):
+  | { url: string; protocol: string; hostname: string }
+  | { error: string; protocol?: string; hostname?: string } {
+  if (typeof value !== "string") {
+    return { error: "Flutterwave data.link was not a string." };
+  }
   try {
-    const url = new URL(value);
-    const allowedHost = url.hostname.endsWith(".flutterwave.com") ||
-      url.hostname.endsWith(".flutterwave.cloud") ||
-      url.hostname === "flutterwave.com";
-    return url.protocol === "https:" && allowedHost ? url.toString() : null;
+    const url = new URL(value.trim());
+    const protocol = url.protocol.toLowerCase();
+    const hostname = url.hostname.toLowerCase().replace(/\\.$/, "");
+    const allowedHost = hostname === "checkout.flutterwave.com" ||
+      hostname.endsWith(".flutterwave.com") ||
+      hostname === "flutterwave.com" ||
+      hostname.endsWith(".flutterwave.cloud") ||
+      hostname === "flutterwave.cloud";
+
+    if (protocol !== "https:") {
+      return { error: "Flutterwave returned a checkout link without HTTPS.", protocol, hostname };
+    }
+    if (!allowedHost) {
+      return { error: "Flutterwave returned a checkout link on an unrecognized domain.", protocol, hostname };
+    }
+    return { url: url.toString(), protocol, hostname };
   } catch {
-    return null;
+    return { error: "Flutterwave data.link was not a valid absolute URL." };
   }
 }
 
@@ -157,11 +172,12 @@ export async function POST(request: NextRequest) {
     }
 
     const rawLink = result.data?.link;
-    const checkoutUrl = validFlutterwaveCheckout(rawLink);
-    if (!checkoutUrl) {
+    const checkout = parseFlutterwaveCheckout(rawLink);
+    if (!("url" in checkout)) {
       const detail = !rawLink
         ? "Flutterwave returned no data.link (data fields: " + (dataKeys.join(", ") || "none") + ")."
-        : "Flutterwave returned a checkout URL on an unsupported host.";
+        : checkout.error + (checkout.hostname ? " Returned hostname: " + checkout.hostname + "." : "") +
+          (checkout.protocol ? " Returned protocol: " + checkout.protocol + "." : "");
       throw new Error(
         detail + (providerMessage ? " Provider message: " + providerMessage : ""),
       );
@@ -170,7 +186,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      checkout_url: checkoutUrl,
+      checkout_url: checkout.url,
       message: "Opening Flutterwave's secure checkout. Choose Visa, Mastercard or M-Pesa on the payment page.",
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {
