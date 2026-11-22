@@ -14,7 +14,6 @@ const workspaceLinks = [
   { icon: "◷", label: "Publishing Schedule", href: "/dashboard/publishing-schedule" },
   { icon: "☷", label: "Episodes", href: "/dashboard/episodes" },
   { icon: "▣", label: "Subscription", href: "/dashboard/subscription" },
-  { icon: "?", label: "Support", href: "/dashboard/support" },
 ];
 
 export default function DashboardSidebar({ isAdmin = false }: { isAdmin?: boolean }) {
