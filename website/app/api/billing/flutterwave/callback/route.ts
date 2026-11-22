@@ -1,8 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  completeVerifiedFlutterwaveCardV4Payment,
-  completeVerifiedFlutterwavePayment,
-} from "@/lib/server/flutterwave";
+import { completeVerifiedFlutterwavePayment } from "@/lib/server/flutterwave";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,23 +15,18 @@ function subscriptionRedirect(request: NextRequest, result: "success" | "pending
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const status = (params.get("status") || "").toLowerCase();
-  const reference = params.get("reference") || params.get("tx_ref") || "";
-  const chargeId = params.get("id") || params.get("charge_id") || params.get("transaction_id") || "";
+  const reference = params.get("tx_ref") || params.get("reference") || "";
+  const transactionId = params.get("transaction_id") || params.get("id") || "";
 
   if (status === "failed" || status === "cancelled") {
     return subscriptionRedirect(request, "cancelled");
   }
-
-  // Redirect parameters are never trusted as proof of payment. The helper
-  // retrieves the charge from Flutterwave and checks its amount and reference.
-  if (!reference || !chargeId) {
+  if (!reference || !transactionId) {
     return subscriptionRedirect(request, "pending");
   }
 
   try {
-    const completed = reference.startsWith("oc")
-      ? await completeVerifiedFlutterwaveCardV4Payment(reference, chargeId)
-      : await completeVerifiedFlutterwavePayment(reference, chargeId);
+    const completed = await completeVerifiedFlutterwavePayment(reference, transactionId);
     return subscriptionRedirect(request, completed ? "success" : "pending");
   } catch {
     return subscriptionRedirect(request, "pending");
