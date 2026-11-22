@@ -2,7 +2,8 @@ import { createSign } from "node:crypto";
 
 type DispatchResult =
   | { dispatched: true }
-  | { dispatched: false; reason: "not_configured" | "failed" };
+  | { dispatched: false; reason: "not_configured"; missingBindings: string[] }
+  | { dispatched: false; reason: "failed" };
 
 type DispatchConfig = {
   appId?: string;
@@ -36,8 +37,12 @@ export async function dispatchMultiTenantWorker(config: DispatchConfig = {}): Pr
   const repository = (config.repository ?? process.env.GITHUB_REPOSITORY)?.trim() || "Sportsnewsauto/Sportnewsauto";
   const ref = (config.ref ?? process.env.GITHUB_DEFAULT_BRANCH)?.trim() || "main";
 
-  if (!appId || !rawPrivateKey) {
-    return { dispatched: false, reason: "not_configured" };
+  const missingBindings = [
+    ...(!appId ? ["GITHUB_APP_ID"] : []),
+    ...(!rawPrivateKey ? ["GITHUB_APP_PRIVATE_KEY"] : []),
+  ];
+  if (missingBindings.length > 0) {
+    return { dispatched: false, reason: "not_configured", missingBindings };
   }
 
   const [owner, repo, ...extra] = repository.split("/");
@@ -47,8 +52,8 @@ export async function dispatchMultiTenantWorker(config: DispatchConfig = {}): Pr
   }
 
   try {
-    const privateKey = rawPrivateKey.replace(/\\n/g, "\n");
-    const appJwt = createAppJwt(appId, privateKey);
+    const privateKey = rawPrivateKey!.replace(/\\n/g, "\n");
+    const appJwt = createAppJwt(appId!, privateKey);
     const apiBase = "https://api.github.com";
     const headers = {
       Accept: "application/vnd.github+json",
