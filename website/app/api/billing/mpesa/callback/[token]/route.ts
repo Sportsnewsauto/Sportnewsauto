@@ -57,7 +57,7 @@ export async function POST(
   const receipt = String(values.MpesaReceiptNumber || "");
   const phone = String(values.PhoneNumber || "");
 
-  if (!Number.isFinite(amount) || !receipt || !/^254[17]\\d{8}$/.test(phone)) {
+  if (!Number.isFinite(amount) || !receipt || !/^254[17]\d{8}$/.test(phone)) {
     return NextResponse.json({ error: "The successful M-Pesa callback is missing verified payment details." }, { status: 400 });
   }
 
