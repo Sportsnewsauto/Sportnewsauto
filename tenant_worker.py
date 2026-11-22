@@ -360,10 +360,24 @@ def rolling_episode_count(db: SupabaseRest, owner_id: str, current: datetime) ->
     return len(rows)
 
 
+def has_lifetime_episode(db: SupabaseRest, owner_id: str) -> bool:
+    """Return whether this workspace already has a non-failed episode."""
+    rows = db.select(
+        "episodes",
+        select="id",
+        owner_id=f"eq.{owner_id}",
+        status="in.(draft,queued,processing,ready,published)",
+        limit="1",
+    )
+    return bool(rows)
+
+
 def workspace_episode_limits(workspace: dict[str, Any], workspace_plan: str) -> tuple[int, int]:
     """Return daily and rolling 30-day limits with plan-aware safe defaults."""
-    default_daily_limit = 6 if workspace_plan == "pro" else 3
-    default_monthly_limit = 180 if workspace_plan == "pro" else 3
+    if workspace_plan == "free":
+        return 1, 1
+    default_daily_limit = 6
+    default_monthly_limit = 180
     daily_limit = max(1, int(workspace.get("daily_episode_limit") or default_daily_limit))
     monthly_limit = max(1, int(workspace.get("monthly_episode_limit") or default_monthly_limit))
     return daily_limit, monthly_limit
@@ -831,6 +845,11 @@ def process_queued_jobs(db: SupabaseRest):
                 plan = effective_workspace_plan(workspace, current)
                 is_manual = payload.get("source") == "manual"
 
+                if plan == "free" and has_lifetime_episode(db, owner_id):
+                    mark_job(db, job_id, "cancelled", "The one free lifetime episode has already been used. Upgrade to continue.")
+                    print(f"[{owner_id}] Cancelled job {job_id}: the one free lifetime episode was already used.", flush=True)
+                    continue
+
                 if not is_manual and plan not in {"pro", "admin"}:
                     mark_job(db, job_id, "cancelled", "Scheduled automation requires an active paid subscription.")
                     print(f"[{owner_id}] Cancelled scheduled job {job_id}: no active paid plan.", flush=True)
@@ -937,7 +956,7 @@ def enqueue_due_workspaces(db: SupabaseRest):
             continue
         settings = settings_rows[0]
         plan = effective_workspace_plan(workspace, current)
-        # Free workspaces can use their three manual runs but never receive
+        # Free workspaces can use one lifetime episode but never receive
         # recurring jobs, even if an older settings row still says enabled.
         if plan not in {"pro", "admin"} or not settings.get("automation_enabled", False):
             continue
@@ -945,10 +964,10 @@ def enqueue_due_workspaces(db: SupabaseRest):
         if due_slot is None:
             continue
         if plan != "admin":
-            limit = max(1, int(workspace.get("daily_episode_limit") or 3))
+            limit = max(1, int(workspace.get("daily_episode_limit") or 6))
             used_today = daily_episode_count(db, owner_id, settings, workspace, current)
             used_30_days = rolling_episode_count(db, owner_id, current)
-            monthly_limit = max(1, int(workspace.get("monthly_episode_limit") or 90))
+            monthly_limit = max(1, int(workspace.get("monthly_episode_limit") or 180))
             if used_today >= limit:
                 print(f"[{owner_id}] Daily episode limit reached ({used_today}/{limit}); skipping.", flush=True)
                 continue
