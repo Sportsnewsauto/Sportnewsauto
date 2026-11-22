@@ -108,14 +108,14 @@ export async function flutterwaveV4Request<T>(
   for (let attempt = 0; attempt < 2; attempt++) {
     const token = await getAccessToken(attempt > 0);
     const headers: Record<string, string> = {
-      Authorization: \`Bearer \${token}\`,
+      Authorization: `Bearer ${token}`,
       Accept: "application/json",
       "X-Trace-Id": randomUUID(),
     };
     if (options.body !== undefined) headers["Content-Type"] = "application/json";
     if (options.idempotencyKey) headers["X-Idempotency-Key"] = options.idempotencyKey;
 
-    const response = await fetch(\`\${API_BASE_URL}\${path}\`, {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
       method: options.method || "GET",
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
@@ -130,7 +130,7 @@ export async function flutterwaveV4Request<T>(
       continue;
     }
     if (!response.ok || result.status === "failed") {
-      throw new Error(\`Flutterwave V4 request failed (HTTP \${response.status}).\`);
+      throw new Error(`Flutterwave V4 request failed (HTTP ${response.status}).`);
     }
     return result;
   }
@@ -141,9 +141,10 @@ export async function flutterwaveV4Request<T>(
 export async function getKenyanMpesaNetwork(): Promise<string> {
   const result = await flutterwaveV4Request<MobileNetwork[]>("/mobile-networks?country=KE");
   const networks = Array.isArray(result.data) ? result.data : [];
-  const mpesa = networks.find((item) =>
-    /m[\s-]?pesa|safaricom|^mps$/i.test(\`\${item.name || ""} \${item.network || ""}\`)
-  );
+  const mpesa = networks.find((item) => {
+    const label = `${item.name || ""} ${item.network || ""}`;
+    return /m[\s-]?pesa|safaricom/i.test(label) || String(item.network || "").toUpperCase() === "MPS";
+  });
 
   if (!mpesa?.network) {
     throw new Error("Flutterwave did not return a supported M-Pesa network for Kenya.");
@@ -189,7 +190,7 @@ export async function completeVerifiedFlutterwavePayment(reference: string, char
   if (paymentError || !payment || payment.status === "failed") return false;
 
   const envelope = await flutterwaveV4Request<FlutterwaveCharge>(
-    \`/charges/\${encodeURIComponent(chargeId)}\`,
+    `/charges/${encodeURIComponent(chargeId)}`,
   );
   const charge = envelope.data;
   if (
