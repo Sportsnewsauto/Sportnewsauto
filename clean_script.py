@@ -26,10 +26,9 @@ def main():
         with CONFIG_FILE.open("r", encoding="utf-8") as file:
             config = json.load(file)
 
-    minimum_required = max(
-        MINIMUM_NARRATION_CHARACTERS,
-        int(config.get("minimum_narration_characters", 13500)),
-    )
+    minimum_required = int(config.get("minimum_narration_characters", MINIMUM_NARRATION_CHARACTERS))
+    if not 5000 <= minimum_required <= 50000:
+        raise ValueError("minimum_narration_characters must be between 5000 and 50000.")
 
     script_text = SCRIPT_FILE.read_text(encoding="utf-8")
 
