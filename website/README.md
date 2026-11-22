@@ -7,7 +7,7 @@ Next.js 15 website for Automate Spreaker Podcast, using Supabase Auth and Postgr
 - Light theme.
 - Monthly subscription model; the free plan allows one episode per day.
 - Each account owns its Spreaker, Groq and Gemini credentials.
-- Platform-provided Kokoro text-to-speech.
+- Platform-provided Podcasti text-to-speech service.
 - Automatic publishing or review-before-publishing.
 - Account timezone defaults to Africa/Nairobi.
 - Eight evenly spaced schedule times are the editable starting schedule.
@@ -48,7 +48,7 @@ In Supabase Authentication → URL Configuration, set the Site URL to the deploy
 
 - Email/password registration, login, logout and password recovery screens.
 - Protected dashboard, private workspaces and the owner username login.
-- Podcast profile, AI provider/model, writing instructions, Kokoro voice, publishing mode, timezone and schedule preferences.
+- Podcast profile, AI provider/model, writing instructions, Podcasti voice, publishing mode, timezone and schedule preferences.
 - Explicit per-workspace switch for scheduled episode generation; it is off by default.
 - Per-account RSS feed management with starter sources from the existing automation, including league-specific football and Premier League feeds.
 - Per-account advertising cue points; workspace values are passed to the worker and supported by the Spreaker upload script.
