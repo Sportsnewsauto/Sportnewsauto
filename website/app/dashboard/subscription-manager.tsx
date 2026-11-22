@@ -150,7 +150,7 @@ export default function SubscriptionManager() {
                 <p><del>KSh 6,000</del> · 50% off</p>
                 <ul><li>Up to 3 episodes per day</li><li>90 episodes per rolling 30 days</li><li>20 RSS feeds</li><li>Up to 50,000 script characters</li><li>All standard Podcasti voices</li><li>Automatic scheduling and manual runs</li></ul>
                 <div className="integration-actions">
-                  {status.flutterwave_ready && <button className="btn btn-primary" disabled={busy} onClick={() => void startFlutterwave("monthly")}>Pay online with Flutterwave</button>}
+                  {status.flutterwave_ready && <button className="btn btn-primary" disabled={busy} onClick={() => void startFlutterwave("monthly")}>Pay by card or M-Pesa</button>}
                   {status.mpesa_ready && <button className="btn btn-outline" disabled={busy} onClick={() => void startPayment("monthly")}>Pay directly with M-Pesa</button>}
                 </div>
               </article>
@@ -168,7 +168,7 @@ export default function SubscriptionManager() {
               </article>
             </div>
             <div className="section-form" style={{ marginTop: 20 }}>
-              <label>Phone number (optional; used if you choose M-Pesa at checkout)
+              <label>Phone number (required for direct M-Pesa; optional for card checkout)
                 <input inputMode="tel" autoComplete="tel" value={phone} onChange={event => setPhone(event.target.value)} placeholder="0712345678" />
               </label>
               {!status.flutterwave_ready && !status.mpesa_ready && <p className="auth-notice">Online payments are not configured yet. The administrator must add the Flutterwave secret and webhook hash, or Safaricom Daraja credentials, in Cloudflare.</p>}
