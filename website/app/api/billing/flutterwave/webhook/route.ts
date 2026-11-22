@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
+  completeVerifiedFlutterwaveCardPayment,
   completeVerifiedFlutterwavePayment,
+  verifyFlutterwaveV3WebhookHash,
   verifyFlutterwaveV4WebhookSignature,
 } from "@/lib/server/flutterwave";
 
@@ -22,8 +24,12 @@ export async function POST(request: NextRequest) {
   // Read the original bytes before parsing JSON; the V4 HMAC is calculated
   // over the exact raw request body.
   const rawBody = await request.text();
-  const signature = request.headers.get("flutterwave-signature") || "";
-  if (!verifyFlutterwaveV4WebhookSignature(rawBody, signature)) {
+  const v4Signature = request.headers.get("flutterwave-signature") || "";
+  const v3Hash = request.headers.get("verif-hash") || "";
+  const signatureIsValid = v4Signature
+    ? verifyFlutterwaveV4WebhookSignature(rawBody, v4Signature)
+    : verifyFlutterwaveV3WebhookHash(v3Hash);
+  if (!signatureIsValid) {
     return NextResponse.json({ error: "Unauthorized Flutterwave webhook." }, { status: 401 });
   }
 
@@ -39,21 +45,24 @@ export async function POST(request: NextRequest) {
   }
 
   // V4 reports successful charges as "succeeded" and uses "reference".
-  if (String(payload.data?.status || "").toLowerCase() !== "succeeded") {
-    return NextResponse.json({ received: true });
-  }
-
   const chargeId = payload.data?.id === undefined ? "" : String(payload.data.id);
   const reference = typeof payload.data?.reference === "string"
     ? payload.data.reference
     : typeof payload.data?.tx_ref === "string" ? payload.data.tx_ref : "";
+  const isCardPayment = reference.startsWith("pc");
+  const successfulStatus = String(payload.data?.status || "").toLowerCase();
+  if (isCardPayment ? successfulStatus !== "successful" : successfulStatus !== "succeeded") {
+    return NextResponse.json({ received: true });
+  }
 
   if (!chargeId || !reference) {
     return NextResponse.json({ error: "The Flutterwave webhook is missing its charge reference." }, { status: 400 });
   }
 
   try {
-    const completed = await completeVerifiedFlutterwavePayment(reference, chargeId);
+    const completed = isCardPayment
+      ? await completeVerifiedFlutterwaveCardPayment(reference, chargeId)
+      : await completeVerifiedFlutterwavePayment(reference, chargeId);
     if (!completed) {
       return NextResponse.json({ error: "The Flutterwave charge could not yet be verified." }, { status: 503 });
     }
