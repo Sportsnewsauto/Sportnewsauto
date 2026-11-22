@@ -21,6 +21,9 @@ on:
       - "upload_spreaker.py"
       - "test_worker_published_episode_recovery.py"
       - "test_worker_subscription_limits.py"
+      - "record_covered_story.py"
+      - "test_record_covered_story.py"
+      - ".github/workflows/podcast.yml"
       - ".github/workflows/multi-tenant-podcast-worker.yml"
       - ".github/workflows/podcast-worker-ci.yml"
 
