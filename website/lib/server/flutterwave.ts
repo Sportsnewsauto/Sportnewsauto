@@ -22,10 +22,10 @@ type ApiEnvelope<T> = {
 function safeProviderMessage(value: unknown): string {
   if (typeof value !== "string" || !value.trim()) return "";
   return value
-    .replace(/[\\r\\n\\t]+/g, " ")
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi, "[email]")
-    .replace(/(?:Bearer\\s+)\\S+/gi, "Bearer [redacted]")
-    .replace(/\\b(?:254|0)?[17]\\d{8}\\b/g, "[phone]")
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+    .replace(/(?:Bearer\s+)\S+/gi, "Bearer [redacted]")
+    .replace(/\b(?:254|0)?[17]\d{8}\b/g, "[phone]")
     .slice(0, 180);
 }
 
