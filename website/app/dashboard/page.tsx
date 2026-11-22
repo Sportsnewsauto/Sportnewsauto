@@ -29,7 +29,7 @@ export default async function Dashboard() {
       </div>
       <div className="panel"><h2>Next setup steps</h2>
         <div className="connection"><span><strong>AI and Spreaker connections</strong><br/><small>{connectedCount} of 3 provider connections verified. Open API Connections to connect Spreaker, Groq and Gemini.</small></span><span className={connectedCount === 3 ? "status" : "pill"}>{connectedCount}/3 verified</span></div>
-        <div className="connection"><span><strong>Scheduled production</strong><br/><small>Choose feeds, set publishing times and enable scheduled generation when all services are ready.</small></span><span className="pill">{automationLabel}</span></div>
+        <div className="connection"><span><strong>Scheduled production</strong><br/><small>Add your RSS feed, choose a publishing interval and enable scheduled generation when all services are ready.</small></span><span className="pill">{automationLabel}</span></div>
       </div>
     </section>
   );

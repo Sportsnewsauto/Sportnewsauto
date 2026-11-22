@@ -19,7 +19,7 @@ type WorkspaceSettings = {
   tts_voice: string;
   publishing_mode: "automatic" | "review";
   automation_enabled: boolean;
-  scheduled_times: string[];
+  publishing_interval_hours: number;
 };
 
 const defaultSettings: WorkspaceSettings = {
@@ -32,16 +32,49 @@ const defaultSettings: WorkspaceSettings = {
   timezone: "Africa/Nairobi",
   minimum_narration_characters: 13500,
   tts_provider: "kokoro",
-  tts_voice: "af_heart",
+  tts_voice: "af_bella",
   publishing_mode: "automatic",
   automation_enabled: false,
-  scheduled_times: ["00:00", "03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00"],
+  publishing_interval_hours: 8,
 };
+
+const ADMIN_ONLY_KOKORO_VOICES = ["af_heart", "am_michael"];
+const KOKORO_VOICES = [
+  { id: "af_alloy", label: "Alloy — American English (female)" },
+  { id: "af_aoede", label: "Aoede — American English (female)" },
+  { id: "af_bella", label: "Bella — American English (female)" },
+  { id: "af_heart", label: "Heart — American English (female)", adminOnly: true },
+  { id: "af_jessica", label: "Jessica — American English (female)" },
+  { id: "af_kore", label: "Kore — American English (female)" },
+  { id: "af_nicole", label: "Nicole — American English (female)" },
+  { id: "af_nova", label: "Nova — American English (female)" },
+  { id: "af_river", label: "River — American English (female)" },
+  { id: "af_sarah", label: "Sarah — American English (female)" },
+  { id: "af_sky", label: "Sky — American English (female)" },
+  { id: "am_adam", label: "Adam — American English (male)" },
+  { id: "am_echo", label: "Echo — American English (male)" },
+  { id: "am_eric", label: "Eric — American English (male)" },
+  { id: "am_fenrir", label: "Fenrir — American English (male)" },
+  { id: "am_liam", label: "Liam — American English (male)" },
+  { id: "am_michael", label: "Michael — American English (male)", adminOnly: true },
+  { id: "am_onyx", label: "Onyx — American English (male)" },
+  { id: "am_puck", label: "Puck — American English (male)" },
+  { id: "am_santa", label: "Santa — American English (male)" },
+  { id: "bf_alice", label: "Alice — British English (female)" },
+  { id: "bf_emma", label: "Emma — British English (female)" },
+  { id: "bf_isabella", label: "Isabella — British English (female)" },
+  { id: "bf_lily", label: "Lily — British English (female)" },
+  { id: "bm_daniel", label: "Daniel — British English (male)" },
+  { id: "bm_fable", label: "Fable — British English (male)" },
+  { id: "bm_george", label: "George — British English (male)" },
+  { id: "bm_lewis", label: "Lewis — British English (male)" },
+] as const;
+const PUBLISHING_INTERVALS = [2, 4, 6, 8] as const;
 
 const sectionInfo: Record<Section, { title: string; intro: string }> = {
   "ai-configuration": { title: "AI Configuration", intro: "Set the minimum number of characters for each episode script." },
-  "audio-settings": { title: "Audio Settings", intro: "Choose the platform-provided Kokoro voice used for narration." },
-  "publishing-schedule": { title: "Publishing Schedule", intro: "Choose when episodes should be prepared and whether they publish automatically or wait for approval." },
+  "audio-settings": { title: "Audio Settings", intro: "Choose a Kokoro narration voice for your podcast." },
+  "publishing-schedule": { title: "Publishing Schedule", intro: "Choose how often your podcast episodes should be generated." },
   episodes: { title: "Episodes", intro: "View episode records belonging to your workspace." },
   subscription: { title: "Subscription", intro: "Review your current plan and its usage allowance." },
   support: { title: "Support", intro: "Help and setup information for your podcast workspace." },
@@ -69,14 +102,34 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     let active = true;
     async function load() {
-      const { data, error } = await supabase.from("workspace_settings").select("*").maybeSingle();
+      const [{ data, error }, { data: workspace }] = await Promise.all([
+        supabase.from("workspace_settings").select("*").maybeSingle(),
+        supabase.from("workspaces").select("plan").maybeSingle(),
+      ]);
       if (!active) return;
-      if (error) setError("Workspace settings are not available. Apply all Supabase migrations, including 0007, then refresh this page.");
-      else if (data) setForm({ ...defaultSettings, ...data, scheduled_times: Array.isArray(data.scheduled_times) ? data.scheduled_times : defaultSettings.scheduled_times });
+      const adminWorkspace = workspace?.plan === "admin";
+      setIsAdmin(adminWorkspace);
+      if (error) {
+        setError("Workspace settings are not available. Apply all Supabase migrations, including 0007 and 0008, then refresh this page.");
+      } else if (data) {
+        const savedVoice = typeof data.tts_voice === "string" ? data.tts_voice : defaultSettings.tts_voice;
+        const voiceExists = KOKORO_VOICES.some(voice => voice.id === savedVoice);
+        const voiceIsReserved = ADMIN_ONLY_KOKORO_VOICES.includes(savedVoice);
+        const savedInterval = Number(data.publishing_interval_hours);
+        setForm({
+          ...defaultSettings,
+          ...data,
+          tts_voice: voiceExists && (adminWorkspace || !voiceIsReserved) ? savedVoice : defaultSettings.tts_voice,
+          publishing_interval_hours: PUBLISHING_INTERVALS.includes(savedInterval as (typeof PUBLISHING_INTERVALS)[number])
+            ? savedInterval
+            : defaultSettings.publishing_interval_hours,
+        });
+      }
       setLoading(false);
     }
     void load();
@@ -108,17 +161,59 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
       setSaving(false);
       return;
     }
-    const values = section === "ai-configuration"
-      ? {
+    if (
+      section === "audio-settings" &&
+      (!KOKORO_VOICES.some(voice => voice.id === form.tts_voice) ||
+        (!isAdmin && ADMIN_ONLY_KOKORO_VOICES.includes(form.tts_voice)))
+    ) {
+      setError("Choose a Kokoro voice available to your workspace.");
+      setSaving(false);
+      return;
+    }
+    if (
+      section === "publishing-schedule" &&
+      !PUBLISHING_INTERVALS.includes(form.publishing_interval_hours as (typeof PUBLISHING_INTERVALS)[number])
+    ) {
+      setError("Choose a publishing interval of 2, 4, 6 or 8 hours.");
+      setSaving(false);
+      return;
+    }
+    let saveError: { message: string } | null = null;
+    if (section === "ai-configuration") {
+      const result = await supabase.from("workspace_settings").upsert(
+        {
           owner_id: user.id,
           minimum_narration_characters: form.minimum_narration_characters,
           updated_at: new Date().toISOString(),
-        }
-      : { ...form, owner_id: user.id, updated_at: new Date().toISOString() };
-    const { error: saveError } = await supabase.from("workspace_settings").upsert(
-      values,
-      { onConflict: "owner_id" },
-    );
+        },
+        { onConflict: "owner_id" },
+      );
+      saveError = result.error;
+    } else if (section === "audio-settings") {
+      const result = await supabase.from("workspace_settings").upsert(
+        {
+          owner_id: user.id,
+          tts_provider: "kokoro",
+          tts_voice: form.tts_voice,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "owner_id" },
+      );
+      saveError = result.error;
+    } else {
+      const result = await supabase.from("workspace_settings").upsert(
+        {
+          owner_id: user.id,
+          automation_enabled: form.automation_enabled,
+          publishing_mode: form.publishing_mode,
+          timezone: form.timezone,
+          publishing_interval_hours: form.publishing_interval_hours,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "owner_id" },
+      );
+      saveError = result.error;
+    }
     if (saveError) setError(saveError.message);
     else setNotice("Your settings have been saved.");
     setSaving(false);
@@ -148,15 +243,28 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
         </>}
         {section === "audio-settings" && <>
           <label>Text-to-speech provider<input value="Kokoro (provided by platform)" readOnly /></label>
-          <label>Kokoro voice ID<input required value={form.tts_voice} onChange={e => update("tts_voice", e.target.value)} placeholder="af_heart" /></label>
-          <p className="microcopy">Voice selection is saved here. The audio-generation worker must be connected before this setting affects published episodes.</p>
+          <label>Kokoro voice
+            <select required value={form.tts_voice} onChange={e => update("tts_voice", e.target.value)}>
+              {KOKORO_VOICES.filter(voice => isAdmin || !ADMIN_ONLY_KOKORO_VOICES.includes(voice.id)).map(voice => (
+                <option key={voice.id} value={voice.id}>{voice.label}{("adminOnly" in voice && voice.adminOnly) ? " (Admin only)" : ""}</option>
+              ))}
+            </select>
+          </label>
+          <p className="microcopy">Choose from Kokoro's American and British English voices. The Heart and Michael voices are reserved for the admin workspace.</p>
         </>}
         {section === "publishing-schedule" && <>
           <label className="automation-toggle"><span><strong>Enable scheduled episode generation</strong><small>Leave this off until your Spreaker, AI and sports feed connections are ready.</small></span><input type="checkbox" checked={form.automation_enabled} onChange={e => update("automation_enabled", e.target.checked)} /></label>
           <label>Publishing mode<select value={form.publishing_mode} onChange={e => update("publishing_mode", e.target.value as "automatic" | "review")}><option value="automatic">Automatic publishing</option><option value="review">Review before publishing</option></select></label>
           <label>Timezone<input required value={form.timezone} onChange={e => update("timezone", e.target.value)} /></label>
-          <label>Scheduled times (one HH:MM time per line)<textarea rows={8} value={form.scheduled_times.join("\n")} onChange={e => update("scheduled_times", e.target.value.split(/[\n,]+/).map(x => x.trim()).filter(Boolean))} /></label>
-          <p className="microcopy">Default times are evenly spaced every three hours. The separate worker checks this schedule and enforces your daily episode allowance. Scheduled generation remains off until you enable it above.</p>
+          <label>Episode generation interval
+            <select value={form.publishing_interval_hours} onChange={e => update("publishing_interval_hours", Number(e.target.value))}>
+              <option value={2}>Every 2 hours</option>
+              <option value={4}>Every 4 hours</option>
+              <option value={6}>Every 6 hours</option>
+              <option value={8}>Every 8 hours</option>
+            </select>
+          </label>
+          <p className="microcopy">The worker checks schedules hourly and creates episodes at your selected interval. Your account's daily episode allowance still applies. Scheduled generation remains off until you enable it above.</p>
         </>}
         {error && <Notice error>{error}</Notice>}
         {notice && <Notice>{notice}</Notice>}
