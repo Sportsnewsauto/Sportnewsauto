@@ -41,6 +41,12 @@ Run these SQL files in order in the Supabase SQL Editor:
 1. `supabase/migrations/0001_accounts_and_workspaces.sql`
 2. `supabase/migrations/0002_workspace_configuration_and_jobs.sql`
 3. `supabase/migrations/0003_credential_security_and_job_idempotency.sql`
+4. `supabase/migrations/0004_service_role_worker_table_grants.sql`
+5. `supabase/migrations/0005_admin_workspace_plan.sql`
+6. `supabase/migrations/0006_admin_import_profile_read.sql`
+7. `supabase/migrations/0007_shared_ai_policy_and_script_length.sql`
+8. `supabase/migrations/0008_user_voice_schedule_preferences.sql`
+9. `supabase/migrations/0009_manual_automation_trial.sql`
 
 In Supabase Authentication → URL Configuration, set the Site URL to the deployed website and allow the deployed authentication callback URL.
 
@@ -54,16 +60,17 @@ In Supabase Authentication → URL Configuration, set the Site URL to the deploy
 - Per-account advertising cue points; workspace values are passed to the worker and supported by the Spreaker upload script.
 - Server-side AES-256-GCM encryption for Spreaker, Groq and Gemini credentials. Migration 0003 removes direct browser access to encrypted credential rows.
 - Spreaker server-side OAuth authorization-code flow with CSRF state validation, encrypted access/refresh token storage, editable show selection and automatic access-token refresh.
-- A separate multi-workspace GitHub Actions worker. It reads each workspace's own feeds, AI credentials, Spreaker show, schedule and ad slots; enforces the saved daily episode limit; supports automatic publishing, review drafts and manual publishing from the Episodes screen.
+- A separate multi-workspace GitHub Actions worker. It reads each workspace's own feeds, AI credentials, Spreaker show, schedule and ad slots; enforces the saved daily episode limit; supports scheduled publishing, review drafts and manual publishing from the dashboard and Episodes screen.
+- A one-click manual automation run. The first generated episode is flagged as the workspace's free trial; manual runs use the owner's connected services, count toward the daily episode allowance, and do not enable recurring scheduling. Queued jobs are picked up by the worker's five-minute check.
 - Separate syntax checks for the Python worker and upload scripts.
 - Episode and subscription screens.
 
 ## Still requires external setup
 
-- Run migration 0003 in Supabase before using the new credential-removal RPC, automation switch and worker idempotency.
+- Run all Supabase migrations through 0009 in order. Migration 0009 installs the secure manual-run queue function.
 - Each user registers the website callback URL in their own Spreaker Developer App, then saves their own Client ID and Client Secret under Dashboard → API Connections.
-- Add the GitHub Actions worker secrets listed above. The new worker is safely inactive until these are present.
-- For each workspace, connect Spreaker, select a show, connect the chosen Groq or Gemini provider, enable news feeds and then explicitly enable scheduled generation. The worker runs on the eight Nairobi-time schedule checks and enforces each workspace's daily limit.
+- For a new deployment, add the GitHub Actions worker secrets listed above. The worker skips processing when required secrets are missing.
+- For each workspace, connect Spreaker, select a show, connect the chosen Groq or Gemini provider, enable news feeds and then explicitly enable scheduled generation. The worker checks the queue every five minutes, uses each workspace's saved 2/4/6/8-hour interval for scheduled runs, and enforces each workspace's daily limit.
 - Accept Spreaker's Ad Exchange terms in the Spreaker account if you want Spreaker to use the submitted advertising cue points. Cue points are not the same as supplying your own ad audio or campaigns.
 - Configure reliable email delivery for password recovery and account notifications. The built-in Supabase email service has restrictive default sending limits.
 - Connect a payment provider and define paid plan prices before accepting subscriptions. Payments are not enabled and no charges are made by the site.
