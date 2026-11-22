@@ -374,7 +374,6 @@ def build_workspace_process_env(
     base_env: dict[str, str],
     *,
     settings: dict[str, Any],
-    selected_ai: str,
     groq_key: str,
     gemini_key: str,
     verified_providers: set[str],
@@ -386,27 +385,25 @@ def build_workspace_process_env(
     env = dict(base_env)
     for name in PLATFORM_SECRET_ENV_VARS:
         env.pop(name, None)
+    # Do not allow an Actions-level environment variable to override the
+    # fixed platform writing policy.
+    env.pop("AI_WRITING_INSTRUCTIONS", None)
 
-    # A saved Gemini key is only eligible as Groq fallback after that account
-    # has separately verified it. The selected provider is validated by caller.
-    groq_for_run = groq_key if selected_ai == "groq" else ""
-    gemini_for_run = (
-        gemini_key
-        if selected_ai == "gemini" or "gemini" in verified_providers
-        else ""
-    )
+    # Match the existing single-account automation for every workspace:
+    # Groq is primary; a separately verified Gemini key is the fallback.
+    groq_for_run = groq_key if "groq" in verified_providers else ""
+    gemini_for_run = gemini_key if "gemini" in verified_providers else ""
 
     env.update({
         "GROQ_API_KEY": groq_for_run,
         "GEMINI_API_KEY": gemini_for_run,
-        "GROQ_TEXT_MODEL": str(settings.get("ai_model") or "openai/gpt-oss-120b") if selected_ai == "groq" else "openai/gpt-oss-120b",
-        "GEMINI_TEXT_MODEL": str(settings.get("ai_model") or "gemini-3.5-flash-lite") if selected_ai == "gemini" else "gemini-3.5-flash-lite",
+        "GROQ_TEXT_MODEL": "openai/gpt-oss-120b",
+        "GEMINI_TEXT_MODEL": "gemini-3.5-flash-lite",
         "PODCAST_NAME": str(settings.get("podcast_name") or "Sports News Podcast"),
         "PODCAST_DESCRIPTION": str(settings.get("podcast_description") or ""),
         "PODCAST_CATEGORY": str(settings.get("category") or "Sports"),
         "PODCAST_LANGUAGE": str(settings.get("language") or "en"),
         "PODCAST_COUNTRY": str(settings.get("country") or "KE"),
-        "AI_WRITING_INSTRUCTIONS": str(settings.get("ai_writing_instructions") or ""),
         "SPREAKER_ACCESS_TOKEN": spreaker_token,
         "SPREAKER_SHOW_ID": show_id,
         "KOKORO_VOICE": str(settings.get("tts_voice") or "af_heart"),
@@ -435,15 +432,10 @@ def run_pipeline(
     if not show_id:
         raise RuntimeError("Choose a Spreaker show in API Connections before enabling automation.")
 
-    selected_ai = settings.get("ai_provider") or "groq"
     groq_key = credentials.get("groq", "")
     gemini_key = credentials.get("gemini", "")
-    if selected_ai == "gemini":
-        if "gemini" not in verified or not gemini_key:
-            raise RuntimeError("Gemini is selected, but its API key is not connected and verified.")
-    else:
-        if "groq" not in verified or not groq_key:
-            raise RuntimeError("Groq is selected, but its API key is not connected and verified.")
+    if not (("groq" in verified and groq_key) or ("gemini" in verified and gemini_key)):
+        raise RuntimeError("Connect and verify your own Groq or Gemini API key in API Connections before enabling automation.")
 
     spreaker_token, _ = usable_spreaker_token(db, owner_id, credentials["spreaker"])
     feeds = workspace_feeds(db, owner_id)
@@ -455,7 +447,7 @@ def run_pipeline(
     config = {
         "rss_feeds": feeds,
         "max_story_age_hours": 24,
-        "minimum_narration_characters": 13500,
+        "minimum_narration_characters": int(settings.get("minimum_narration_characters") or 13500),
         "tts_enabled": True,
         "timezone": settings.get("timezone") or workspace.get("timezone") or "Africa/Nairobi",
         "max_episodes_per_run": 1,
@@ -473,7 +465,6 @@ def run_pipeline(
         env = build_workspace_process_env(
             os.environ,
             settings=settings,
-            selected_ai=selected_ai,
             groq_key=groq_key,
             gemini_key=gemini_key,
             verified_providers=verified,

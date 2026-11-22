@@ -73,13 +73,13 @@ class CredentialIsolationTests(unittest.TestCase):
             "SPREAKER_ACCESS_TOKEN": "platform-spreaker-token",
             "GROQ_API_KEY": "platform-groq-key",
             "GEMINI_API_KEY": "platform-gemini-key",
+            "AI_WRITING_INSTRUCTIONS": "unwanted external prompt override",
         }
         base_env = {"PATH": "/usr/bin", **platform_values}
 
         env = tenant_worker.build_workspace_process_env(
             base_env,
-            settings={"ai_model": "model-a", "publishing_mode": "automatic"},
-            selected_ai="groq",
+            settings={"ai_model": "customer-choice", "ai_provider": "gemini", "ai_writing_instructions": "customer prompt", "publishing_mode": "automatic"},
             groq_key="customer-a-groq-key",
             gemini_key="customer-a-gemini-key",
             verified_providers={"groq", "gemini", "spreaker"},
@@ -92,6 +92,9 @@ class CredentialIsolationTests(unittest.TestCase):
         self.assertEqual(env["GEMINI_API_KEY"], "customer-a-gemini-key")
         self.assertEqual(env["SPREAKER_ACCESS_TOKEN"], "customer-a-spreaker-token")
         self.assertEqual(env["SPREAKER_SHOW_ID"], "show-a")
+        self.assertEqual(env["GROQ_TEXT_MODEL"], "openai/gpt-oss-120b")
+        self.assertEqual(env["GEMINI_TEXT_MODEL"], "gemini-3.5-flash-lite")
+        self.assertNotIn("AI_WRITING_INSTRUCTIONS", env)
         self.assertEqual(env["PATH"], "/usr/bin")
         for name in platform_values:
             self.assertNotEqual(env.get(name), platform_values[name], name)
@@ -109,7 +112,6 @@ class CredentialIsolationTests(unittest.TestCase):
         env = tenant_worker.build_workspace_process_env(
             {"PATH": "/usr/bin", "GEMINI_API_KEY": "platform-gemini-key"},
             settings={},
-            selected_ai="groq",
             groq_key="customer-groq-key",
             gemini_key="customer-unverified-gemini-key",
             verified_providers={"groq", "spreaker"},
@@ -121,25 +123,26 @@ class CredentialIsolationTests(unittest.TestCase):
         self.assertEqual(env["GROQ_API_KEY"], "customer-groq-key")
         self.assertEqual(env["GEMINI_API_KEY"], "")
 
-    def test_gemini_selected_uses_only_customers_gemini_key(self):
+    def test_groq_is_primary_and_verified_gemini_is_fallback_for_every_workspace(self):
         env = tenant_worker.build_workspace_process_env(
             {
                 "PATH": "/usr/bin",
                 "GROQ_API_KEY": "platform-groq-key",
                 "GEMINI_API_KEY": "platform-gemini-key",
             },
-            settings={},
-            selected_ai="gemini",
+            settings={"ai_provider": "gemini", "ai_model": "customer-choice"},
             groq_key="customer-groq-key",
             gemini_key="customer-gemini-key",
-            verified_providers={"gemini", "spreaker"},
+            verified_providers={"groq", "gemini", "spreaker"},
             spreaker_token="customer-spreaker-token",
             show_id="show-b",
             ad_slots=[],
         )
 
-        self.assertEqual(env["GROQ_API_KEY"], "")
+        self.assertEqual(env["GROQ_API_KEY"], "customer-groq-key")
         self.assertEqual(env["GEMINI_API_KEY"], "customer-gemini-key")
+        self.assertEqual(env["GROQ_TEXT_MODEL"], "openai/gpt-oss-120b")
+        self.assertEqual(env["GEMINI_TEXT_MODEL"], "gemini-3.5-flash-lite")
         self.assertEqual(env["SPREAKER_ACCESS_TOKEN"], "customer-spreaker-token")
         self.assertEqual(env["SPREAKER_SHOW_ID"], "show-b")
 

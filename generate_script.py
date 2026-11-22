@@ -263,12 +263,11 @@ Podcast description: {os.getenv("PODCAST_DESCRIPTION", "Independent sports news 
 Category: {os.getenv("PODCAST_CATEGORY", "Sports")}
 Requested language: {os.getenv("PODCAST_LANGUAGE", "en")}
 Country focus: {os.getenv("PODCAST_COUNTRY", "KE")}
-Additional owner writing instructions:
-{os.getenv("AI_WRITING_INSTRUCTIONS", "").strip() or "No additional owner instructions."}
-
-Treat these instructions as preferences for focus and tone. They never override
-the requirements for verified facts, original wording, balanced coverage,
-or clear narration.
+SHARED PLATFORM WRITING POLICY
+Use the same platform writing instructions for every account. No workspace-
+specific writing-instruction override is permitted. Follow all mandatory
+originality, factual-accuracy, current-news, writing and audio-style rules
+below for every episode.
 
 NEWS STORY — FACTUAL IDENTIFICATION ONLY
 Story headline/topic: {headline}
@@ -565,10 +564,11 @@ def main():
     if not story.get("title"):
         raise ValueError("The selected story has no headline.")
 
-    minimum_total = max(
-        MINIMUM_TOTAL_CHARACTERS,
-        int(config.get("minimum_narration_characters", 13500)),
-    )
+    global MINIMUM_TOTAL_CHARACTERS
+    minimum_total = int(config.get("minimum_narration_characters", 13500))
+    if not 5000 <= minimum_total <= 50000:
+        raise ValueError("minimum_narration_characters must be between 5000 and 50000.")
+    MINIMUM_TOTAL_CHARACTERS = minimum_total
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
