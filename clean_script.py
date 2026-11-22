@@ -121,6 +121,7 @@ def main():
         )
 
     actual_length = len(narration_text)
+    was_trimmed_to_plan_limit = False
     if actual_length > maximum_allowed:
         sentence_end = narration_text.rfind(". ", 0, maximum_allowed)
         if sentence_end >= int(maximum_allowed * 0.75):
@@ -131,6 +132,7 @@ def main():
                 raise RuntimeError("Could not safely fit narration within the plan character limit.")
             narration_text = narration_text[:word_end].rstrip()
         actual_length = len(narration_text)
+        was_trimmed_to_plan_limit = True
         print(f"Trimmed narration to the plan maximum of {maximum_allowed} characters.", flush=True)
 
     print(f"Sections found: {len(sections)}", flush=True)
@@ -138,7 +140,7 @@ def main():
     print(f"Minimum required: {minimum_required}", flush=True)
     print(f"Maximum allowed: {maximum_allowed}", flush=True)
 
-    if actual_length < minimum_required:
+    if actual_length < minimum_required and not was_trimmed_to_plan_limit:
         raise RuntimeError(
             f"Narration contains {actual_length} characters. "
             f"At least {minimum_required} are required."
