@@ -1,6 +1,13 @@
 import handler from "vinext/server/fetch-handler";
 import { dispatchMultiTenantWorker } from "../lib/server/github-actions";
 
+type PodcastiWorkerEnv = {
+  GITHUB_APP_ID?: string;
+  GITHUB_APP_PRIVATE_KEY?: string;
+  GITHUB_REPOSITORY?: string;
+  GITHUB_DEFAULT_BRANCH?: string;
+};
+
 type PodcastiScheduledController = {
   cron: string;
   scheduledTime: number;
@@ -25,26 +32,35 @@ export default {
 
   scheduled(
     controller: PodcastiScheduledController,
-    _env: unknown,
+    env: PodcastiWorkerEnv,
     ctx: PodcastiExecutionContext,
   ) {
     const scheduledAt = new Date(controller.scheduledTime).toISOString();
 
-    // Use the same process.env-based dispatcher as the working manual button.
-    // Cloudflare populates process.env for Workers using this compatibility date.
     console.log(
       `Podcasti Cloudflare cron received at ${scheduledAt} UTC (cron: ${controller.cron}).`,
     );
 
     const dispatchTask = (async () => {
-      const result = await dispatchMultiTenantWorker();
+      // Cron handlers receive Worker secrets and variables through their
+      // second (env) argument. Pass those bindings explicitly rather than
+      // relying on process.env being populated for this event.
+      const result = await dispatchMultiTenantWorker({
+        appId: env.GITHUB_APP_ID,
+        privateKey: env.GITHUB_APP_PRIVATE_KEY,
+        repository: env.GITHUB_REPOSITORY,
+        ref: env.GITHUB_DEFAULT_BRANCH,
+      });
 
       if (!result.dispatched) {
+        const missingBindings = result.reason === "not_configured"
+          ? ` Missing Worker secrets: ${result.missingBindings.join(", ")}.`
+          : "";
         console.error(
-          `Podcasti Cloudflare cron could not wake the episode processor (reason: ${result.reason}).`,
+          `Podcasti Cloudflare cron could not wake the episode processor (reason: ${result.reason}).${missingBindings}`,
         );
         throw new Error(
-          `Podcasti scheduled worker dispatch failed: ${result.reason}.`,
+          `Podcasti scheduled worker dispatch failed: ${result.reason}.${missingBindings}`,
         );
       }
 
