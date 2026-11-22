@@ -16,8 +16,11 @@ on:
     paths:
       - "tenant_worker.py"
       - "upload_spreaker.py"
+      - "record_covered_story.py"
+      - "test_record_covered_story.py"
       - ".github/workflows/multi-tenant-podcast-worker.yml"
       - ".github/workflows/podcast-worker-ci.yml"
+      - ".github/workflows/podcast.yml"
 
 permissions:
   contents: read
