@@ -190,7 +190,7 @@ export function verifyFlutterwaveV3WebhookHash(providedHash: string): boolean {
 export function isFlutterwaveCardCheckoutConfigured() {
   return Boolean(
     process.env.FLUTTERWAVE_V3_SECRET_KEY?.trim() &&
-    process.env.FLUTTERWAVE_WEBHOOK_HASH?.trim()
+    isFlutterwaveConfigured()
   );
 }
 
