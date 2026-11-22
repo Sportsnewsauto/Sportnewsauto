@@ -189,7 +189,7 @@ $$;
 revoke all on function public.enforce_workspace_feed_limit() from public;
 drop trigger if exists enforce_workspace_feed_limit on public.news_feeds;
 create trigger enforce_workspace_feed_limit
-  before insert or update of owner_id on public.news_feeds
+  before insert or update on public.news_feeds
   for each row execute function public.enforce_workspace_feed_limit();
 
 -- Only the trusted manual-run RPC may create generate_episode jobs.
@@ -211,14 +211,6 @@ create policy "Owners queue publishing of their own episodes"
     )
   );
 
-create policy "Owners update their publishing jobs"
-  on public.publishing_jobs for update to authenticated
-  using ((select auth.uid()) = owner_id)
-  with check ((select auth.uid()) = owner_id);
-
-create policy "Owners delete their publishing jobs"
-  on public.publishing_jobs for delete to authenticated
-  using ((select auth.uid()) = owner_id);
 
 -- Replace the manual queue RPC with lifetime Free-run accounting and a rolling
 -- 30-day episode quota. The first three accepted Free requests are usable runs.
@@ -338,8 +330,7 @@ begin
       from public.publishing_jobs as j
       where j.owner_id = v_owner_id
         and j.job_type = 'generate_episode'
-        and j.payload ->> 'source' = 'manual'
-        and j.status <> 'cancelled';
+        and j.payload ->> 'source' = 'manual';
 
     if v_manual_runs >= 3 then
       raise exception 'Your 3 free manual runs have been used. Upgrade to a paid Podcasti plan to continue.'
