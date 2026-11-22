@@ -54,6 +54,10 @@ SCRIPT_FILES = [
 ]
 
 
+class SupabaseTransientError(RuntimeError):
+    """A retryable Supabase HTTP response, such as 429 or 5xx."""
+
+
 class SupabaseRest:
     def __init__(self) -> None:
         self.base = f"{SUPABASE_URL}/rest/v1"
