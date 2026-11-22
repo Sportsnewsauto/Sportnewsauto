@@ -19,7 +19,8 @@ function parseFlutterwaveCheckout(value: unknown):
     const url = new URL(value.trim());
     const protocol = url.protocol.toLowerCase();
     const hostname = url.hostname.toLowerCase().replace(/\\.$/, "");
-    const allowedHost = hostname === "checkout.flutterwave.com" ||
+    const allowedHost = hostname === "checkout.sgmpayment.com" ||
+      hostname === "checkout.flutterwave.com" ||
       hostname.endsWith(".flutterwave.com") ||
       hostname === "flutterwave.com" ||
       hostname.endsWith(".flutterwave.cloud") ||
