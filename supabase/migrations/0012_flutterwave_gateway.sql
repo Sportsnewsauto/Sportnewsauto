@@ -139,3 +139,6 @@ revoke all on function public.complete_flutterwave_subscription(text, text, inte
   from public, anon, authenticated;
 grant execute on function public.complete_flutterwave_subscription(text, text, integer, text, jsonb)
   to service_role;
+
+comment on table public.billing_payments is
+  'Server-only payment ledger for Safaricom M-Pesa and Flutterwave hosted checkout. Subscription access is activated only after a verified provider callback.';
