@@ -385,6 +385,9 @@ def build_workspace_process_env(
     env = dict(base_env)
     for name in PLATFORM_SECRET_ENV_VARS:
         env.pop(name, None)
+    # Do not allow an Actions-level environment variable to override the
+    # fixed platform writing policy.
+    env.pop("AI_WRITING_INSTRUCTIONS", None)
 
     # Match the existing single-account automation for every workspace:
     # Groq is primary; a separately verified Gemini key is the fallback.
