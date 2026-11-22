@@ -5,7 +5,7 @@ import Link from "next/link";
 import SubscriptionManager from "./subscription-manager";
 import { createClient } from "@/lib/supabase/client";
 
-type Section = "ai-configuration" | "audio-settings" | "publishing-schedule" | "episodes" | "subscription" | "support" | "settings";
+type Section = "ai-configuration" | "audio-settings" | "publishing-schedule" | "episodes" | "subscription" | "settings";
 
 type WorkspaceSettings = {
   podcast_name: string;
@@ -78,7 +78,6 @@ const sectionInfo: Record<Section, { title: string; intro: string }> = {
   "publishing-schedule": { title: "Publishing Schedule", intro: "Choose how often your podcast episodes should be generated." },
   episodes: { title: "Episodes", intro: "View episode records belonging to your workspace." },
   subscription: { title: "Subscription", intro: "Review your current plan and its usage allowance." },
-  support: { title: "Support", intro: "Help and setup information for your podcast workspace." },
   settings: { title: "Workspace Settings", intro: "Manage your workspace name and timezone." },
 };
 
@@ -92,8 +91,7 @@ export default function SectionWorkspace({ section }: { section: Section }) {
   }
   if (section === "episodes") return <EpisodesList />;
   if (section === "subscription") return <SubscriptionManager />;
-  if (section === "settings") return <WorkspaceProfile />;
-  return <SupportPanel />;
+  return <WorkspaceProfile />;
 }
 
 function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-settings" | "publishing-schedule" }) {
@@ -413,12 +411,5 @@ function WorkspaceProfile() {
       {error && <Notice error>{error}</Notice>}{notice && <Notice>{notice}</Notice>}
       <button className="btn btn-primary" disabled={loading || saving}>{saving ? "Saving…" : "Save workspace"}</button>
     </form>
-  </section>;
-}
-
-function SupportPanel() {
-  return <section className="dash-main">
-    <div className="dash-top"><div><p className="section-kicker">HELP</p><h1>Support</h1><p>Setup notes and help for your podcast workspace.</p></div></div>
-    <div className="panel"><h2>Before connecting services</h2><p>Use API Connections to save provider credentials once the encrypted credential vault is configured. Never put private API keys into public feeds, episode descriptions or chat messages.</p><h2>Current implementation status</h2><ul><li>Account registration, login and private workspace: active.</li><li>Podcast and schedule preferences: saved in Supabase after migration 0002.</li><li>Feed and advertising configuration: saved in Supabase after migration 0002.</li><li>Manual and scheduled episode generation: queued for the multi-workspace worker; generated episodes appear in Episodes.</li><li>Subscriptions: Free, Monthly and Yearly plans with usage limits.</li><li>M-Pesa payments activate subscriptions only after a validated Safaricom callback; merchant setup is required.</li></ul><Link href="/dashboard" className="btn btn-outline">Back to overview</Link></div>
   </section>;
 }
