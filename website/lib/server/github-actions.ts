@@ -74,6 +74,7 @@ export async function dispatchMultiTenantWorker(config: DispatchConfig = {}): Pr
     const headers = {
       Accept: "application/vnd.github+json",
       Authorization: `Bearer ${appJwt}`,
+      "User-Agent": "Podcasti-Cloudflare-Worker",
       "X-GitHub-Api-Version": "2022-11-28",
     };
 
@@ -142,6 +143,7 @@ export async function dispatchMultiTenantWorker(config: DispatchConfig = {}): Pr
         headers: {
           Accept: "application/vnd.github+json",
           Authorization: `Bearer ${tokenData.token}`,
+          "User-Agent": "Podcasti-Cloudflare-Worker",
           "X-GitHub-Api-Version": "2022-11-28",
           "Content-Type": "application/json",
         },
