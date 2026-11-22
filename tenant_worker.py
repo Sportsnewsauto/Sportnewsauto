@@ -894,7 +894,20 @@ def check_pending_work() -> bool:
         status="eq.queued",
         limit="1",
     )
-    return bool(queued)
+    if queued:
+        return True
+
+    # A runner can be interrupted after Spreaker publishes and after the
+    # recovery checkpoint is saved but before the Episodes row is finalized.
+    # Keep these jobs visible to the lightweight poller for DB-only recovery.
+    recoverable = db.select(
+        "publishing_jobs",
+        select="id",
+        status="eq.processing",
+        **{"payload->>worker_stage": "in.(spreaker_published,spreaker_review_ready)"},
+        limit="1",
+    )
+    return bool(recoverable)
 
 
 def main():
