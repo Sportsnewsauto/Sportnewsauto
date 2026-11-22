@@ -68,7 +68,7 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  if auth.uid() is not null then
+  if auth.role() = 'authenticated' then
     new.plan := old.plan;
     new.daily_episode_limit := old.daily_episode_limit;
     new.monthly_episode_limit := old.monthly_episode_limit;
