@@ -21,7 +21,15 @@ OUTPUT_DIR = ROOT / "output" / "episode"
 NARRATION_FILE = OUTPUT_DIR / "narration.txt"
 AUDIO_FILE = OUTPUT_DIR / "podcast.wav"
 
-# Kokoro American English voice.
+# Kokoro English voices (American and British).
+SUPPORTED_ENGLISH_VOICES = {
+    "af_alloy", "af_aoede", "af_bella", "af_heart", "af_jessica",
+    "af_kore", "af_nicole", "af_nova", "af_river", "af_sarah", "af_sky",
+    "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam", "am_michael",
+    "am_onyx", "am_puck", "am_santa",
+    "bf_alice", "bf_emma", "bf_isabella", "bf_lily",
+    "bm_daniel", "bm_fable", "bm_george", "bm_lewis",
+}
 VOICE = os.getenv("KOKORO_VOICE", "af_heart")
 
 SAMPLE_RATE = 24000
@@ -41,6 +49,8 @@ def main():
 
     if not narration:
         raise ValueError("The narration file is empty.")
+    if VOICE not in SUPPORTED_ENGLISH_VOICES:
+        raise ValueError(f"Unsupported Kokoro English voice: {VOICE}")
 
     OUTPUT_DIR.mkdir(
         parents=True,
@@ -69,7 +79,8 @@ def main():
 
     # If initialization fails, the outer exception handler
     # will print the complete traceback.
-    pipeline = KPipeline(lang_code="a")
+    # Kokoro uses "a" for American English voices and "b" for British English.
+    pipeline = KPipeline(lang_code=VOICE[0])
 
     print("Kokoro is ready. Generating narration...", flush=True)
 
