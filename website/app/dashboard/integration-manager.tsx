@@ -211,7 +211,7 @@ export default function IntegrationManager() {
       </label>
       <p className="microcopy">Find the Show ID in your Spreaker show page URL or dashboard. We verify that the connected account can edit it before saving.</p>
       <p className="integration-saved">Spreaker Show ID: <strong>{selectedShow || "Not selected"}</strong></p>
-      <button className="btn btn-primary" disabled={showBusy || !/^\\d{1,20}$/.test(selectedShow.trim())} onClick={() => void saveShowSelection()}>{showBusy ? "Verifying…" : "Verify and save Show ID"}</button>
+      <button className="btn btn-primary" disabled={showBusy || !/^\d{1,20}$/.test(selectedShow.trim())} onClick={() => void saveShowSelection()}>{showBusy ? "Verifying…" : "Verify and save Show ID"}</button>
     </div>}
     {error && <p className="auth-error" role="alert">{error}</p>}
     {notice && <p className="auth-notice" role="status">{notice}</p>}
