@@ -75,7 +75,7 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
     async function load() {
       const { data, error } = await supabase.from("workspace_settings").select("*").maybeSingle();
       if (!active) return;
-      if (error) setError("Workspace settings are not available yet. Apply migration 0002 in Supabase, then refresh this page.");
+      if (error) setError("Workspace settings are not available. Apply all Supabase migrations, including 0007, then refresh this page.");
       else if (data) setForm({ ...defaultSettings, ...data, scheduled_times: Array.isArray(data.scheduled_times) ? data.scheduled_times : defaultSettings.scheduled_times });
       setLoading(false);
     }
