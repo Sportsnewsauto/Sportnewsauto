@@ -264,7 +264,7 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
               <option value={8}>Every 8 hours</option>
             </select>
           </label>
-          <p className="microcopy">The worker checks schedules hourly and creates episodes at your selected interval. Your account's daily episode allowance still applies. Scheduled generation remains off until you enable it above.</p>
+          <p className="microcopy">The worker checks every five minutes and creates episodes at your selected interval. Your account's daily episode allowance still applies. Scheduled generation remains off until you enable it above.</p>
         </>}
         {error && <Notice error>{error}</Notice>}
         {notice && <Notice>{notice}</Notice>}
@@ -403,6 +403,6 @@ function WorkspaceProfile() {
 function SupportPanel() {
   return <section className="dash-main">
     <div className="dash-top"><div><p className="section-kicker">HELP</p><h1>Support</h1><p>Setup notes and help for your podcast workspace.</p></div></div>
-    <div className="panel"><h2>Before connecting services</h2><p>Use API Connections to save provider credentials once the encrypted credential vault is configured. Never put private API keys into public feeds, episode descriptions or chat messages.</p><h2>Current implementation status</h2><ul><li>Account registration, login and private workspace: active.</li><li>Podcast and schedule preferences: saved in Supabase after migration 0002.</li><li>Feed and advertising configuration: saved in Supabase after migration 0002.</li><li>Episode generation and Spreaker publishing worker: not connected to this multi-user dashboard yet.</li><li>Subscriptions and payments: not enabled.</li></ul><Link href="/dashboard" className="btn btn-outline">Back to overview</Link></div>
+    <div className="panel"><h2>Before connecting services</h2><p>Use API Connections to save provider credentials once the encrypted credential vault is configured. Never put private API keys into public feeds, episode descriptions or chat messages.</p><h2>Current implementation status</h2><ul><li>Account registration, login and private workspace: active.</li><li>Podcast and schedule preferences: saved in Supabase after migration 0002.</li><li>Feed and advertising configuration: saved in Supabase after migration 0002.</li><li>Manual and scheduled episode generation: queued for the multi-workspace worker; generated episodes appear in Episodes.</li><li>Subscriptions and payments: not enabled.</li></ul><Link href="/dashboard" className="btn btn-outline">Back to overview</Link></div>
   </section>;
 }
