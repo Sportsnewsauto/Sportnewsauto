@@ -1,16 +1,13 @@
 import handler from "vinext/server/fetch-handler";
 import { dispatchMultiTenantWorker } from "../lib/server/github-actions";
 
-type PodcastiWorkerEnv = {
-  GITHUB_APP_ID?: string;
-  GITHUB_APP_PRIVATE_KEY?: string;
-  GITHUB_REPOSITORY?: string;
-  GITHUB_DEFAULT_BRANCH?: string;
-};
-
 type PodcastiScheduledController = {
   cron: string;
   scheduledTime: number;
+};
+
+type PodcastiExecutionContext = {
+  waitUntil(promise: Promise<unknown>): void;
 };
 
 /**
@@ -26,21 +23,37 @@ export default {
     return handler.fetch(request, env, ctx);
   },
 
-  async scheduled(controller: PodcastiScheduledController, env: PodcastiWorkerEnv) {
+  scheduled(
+    controller: PodcastiScheduledController,
+    _env: unknown,
+    ctx: PodcastiExecutionContext,
+  ) {
     const scheduledAt = new Date(controller.scheduledTime).toISOString();
-    const result = await dispatchMultiTenantWorker({
-      appId: env.GITHUB_APP_ID,
-      privateKey: env.GITHUB_APP_PRIVATE_KEY,
-      repository: env.GITHUB_REPOSITORY,
-      ref: env.GITHUB_DEFAULT_BRANCH,
-    });
 
-    if (!result.dispatched) {
-      const reason = result.reason;
-      console.error(`Podcasti Cloudflare cron could not wake the episode processor (reason: ${reason}).`);
-      throw new Error(`Podcasti scheduled worker dispatch failed: ${reason}.`);
-    }
+    // Use the same process.env-based dispatcher as the working manual button.
+    // Cloudflare populates process.env for Workers using this compatibility date.
+    console.log(
+      `Podcasti Cloudflare cron received at ${scheduledAt} UTC (cron: ${controller.cron}).`,
+    );
 
-    console.log(`Podcasti Cloudflare cron dispatched the episode processor for ${scheduledAt} UTC (cron: ${controller.cron}).`);
+    const dispatchTask = (async () => {
+      const result = await dispatchMultiTenantWorker();
+
+      if (!result.dispatched) {
+        console.error(
+          `Podcasti Cloudflare cron could not wake the episode processor (reason: ${result.reason}).`,
+        );
+        throw new Error(
+          `Podcasti scheduled worker dispatch failed: ${result.reason}.`,
+        );
+      }
+
+      console.log(
+        `Podcasti Cloudflare cron successfully dispatched the episode processor for ${scheduledAt} UTC (cron: ${controller.cron}).`,
+      );
+    })();
+
+    // Keep the scheduled invocation alive until the GitHub API dispatch finishes.
+    ctx.waitUntil(dispatchTask);
   },
 };
