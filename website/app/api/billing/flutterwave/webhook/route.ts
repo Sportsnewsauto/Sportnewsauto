@@ -1,67 +1,52 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
-  completeVerifiedFlutterwaveCardV4Payment,
   completeVerifiedFlutterwavePayment,
-  verifyFlutterwaveV4WebhookSignature,
+  verifyFlutterwaveWebhookHash,
 } from "@/lib/server/flutterwave";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type V4WebhookPayload = {
-  type?: string;
+type FlutterwaveWebhookPayload = {
   event?: string;
   data?: {
     id?: string | number;
-    reference?: string;
     tx_ref?: string;
     status?: string;
   };
 };
 
 export async function POST(request: NextRequest) {
-  // Read the original bytes before parsing JSON; the V4 HMAC is calculated
-  // over the exact raw request body.
-  const rawBody = await request.text();
-  const signature = request.headers.get("flutterwave-signature") || "";
-  if (!verifyFlutterwaveV4WebhookSignature(rawBody, signature)) {
+  const signature = request.headers.get("verif-hash") || "";
+  if (!verifyFlutterwaveWebhookHash(signature)) {
     return NextResponse.json({ error: "Unauthorized Flutterwave webhook." }, { status: 401 });
   }
 
-  let payload: V4WebhookPayload;
+  let payload: FlutterwaveWebhookPayload;
   try {
-    payload = JSON.parse(rawBody) as V4WebhookPayload;
+    payload = await request.json() as FlutterwaveWebhookPayload;
   } catch {
     return NextResponse.json({ error: "Invalid webhook payload." }, { status: 400 });
   }
 
-  if ((payload.type || payload.event) !== "charge.completed") {
+  if (payload.event !== "charge.completed" ||
+      String(payload.data?.status || "").toLowerCase() !== "successful") {
     return NextResponse.json({ received: true });
   }
 
-  // V4 reports successful charges as "succeeded" and uses "reference".
-  const chargeId = payload.data?.id === undefined ? "" : String(payload.data.id);
-  const reference = typeof payload.data?.reference === "string"
-    ? payload.data.reference
-    : typeof payload.data?.tx_ref === "string" ? payload.data.tx_ref : "";
-  const isCardPayment = reference.startsWith("oc");
-  if (String(payload.data?.status || "").toLowerCase() !== "succeeded") {
-    return NextResponse.json({ received: true });
-  }
-
-  if (!chargeId || !reference) {
-    return NextResponse.json({ error: "The Flutterwave webhook is missing its charge reference." }, { status: 400 });
+  const transactionId = payload.data?.id === undefined ? "" : String(payload.data.id);
+  const reference = typeof payload.data?.tx_ref === "string" ? payload.data.tx_ref : "";
+  if (!transactionId || !reference) {
+    return NextResponse.json({ error: "The Flutterwave webhook is missing its transaction reference." }, { status: 400 });
   }
 
   try {
-    const completed = isCardPayment
-      ? await completeVerifiedFlutterwaveCardV4Payment(reference, chargeId)
-      : await completeVerifiedFlutterwavePayment(reference, chargeId);
+    const completed = await completeVerifiedFlutterwavePayment(reference, transactionId);
     if (!completed) {
-      return NextResponse.json({ error: "The Flutterwave charge could not yet be verified." }, { status: 503 });
+      return NextResponse.json({ error: "The Flutterwave transaction could not yet be verified." }, { status: 503 });
     }
     return NextResponse.json({ received: true });
   } catch {
-    return NextResponse.json({ error: "Could not verify the Flutterwave V4 charge." }, { status: 503 });
+    return NextResponse.json({ error: "Could not verify the Flutterwave V3 transaction." }, { status: 503 });
   }
 }
