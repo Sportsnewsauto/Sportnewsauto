@@ -60,7 +60,7 @@ export default function FeedsManager() {
       if (authError || !user) throw new Error("Please sign in again.");
       const { error: insertError } = await supabase.from("news_feeds").insert({
         owner_id: user.id,
-        name: parsed.hostname.replace(/^www\\./i, ""),
+        name: parsed.hostname.replace(/^www\./i, ""),
         feed_url: parsed.toString(),
         sport: "General",
         league: "",
