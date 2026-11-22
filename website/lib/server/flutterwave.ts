@@ -3,7 +3,7 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/server/supabase-admin";
 
 const TOKEN_URL = "https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token";
-const API_BASE_URL = "https://api.flutterwave.cloud/f4b/production";
+const API_BASE_URL = "https://f4bexperience.flutterwave.com";
 
 type TokenResponse = {
   access_token?: string;
