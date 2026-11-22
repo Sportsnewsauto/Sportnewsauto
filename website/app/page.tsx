@@ -14,7 +14,7 @@ export default function HomePage() {
     <>
       <header className="site-header">
         <div className="container nav">
-          <Link href="/" className="brand"><span className="brand-mark">◉</span><span>Automate Spreaker Podcast</span></Link>
+          <Link href="/" className="brand"><span className="brand-mark">◉</span><span>Podcasti</span></Link>
           <nav className="nav-links"><a href="#features">Features</a><a href="#how-it-works">How it works</a><a href="#pricing">Pricing</a></nav>
           <div className="nav-actions"><Link className="btn btn-outline" href="/login">Sign in</Link><Link className="btn btn-primary" href="/signup">Get started free</Link></div>
         </div>
@@ -28,7 +28,7 @@ export default function HomePage() {
               <h1>Your podcast.<br/>Your voice.<br/><span style={{color:"var(--blue)"}}>Your automation.</span></h1>
               <p className="hero-copy">Create, produce and publish podcast episodes automatically. Connect your own AI and Spreaker accounts, choose your sports coverage, and let the workflow do the heavy lifting.</p>
               <div className="hero-actions"><Link className="btn btn-primary" href="/signup">Start with the free plan →</Link><a className="btn btn-outline" href="#how-it-works">See how it works</a></div>
-              <p className="microcopy">Free plan includes one episode per day. Bring your own Groq or Gemini and Spreaker credentials.</p>
+              <p className="microcopy">Free includes three manual runs. Bring your own Groq or Gemini and Spreaker credentials.</p>
             </div>
             <div className="preview">
               <div className="preview-top"><span>Podcast overview</span><span className="status">● Automation ready</span></div>
@@ -70,18 +70,19 @@ export default function HomePage() {
 
         <section className="section" id="pricing">
           <div className="container">
-            <div className="section-head"><span className="eyebrow">SIMPLE MONTHLY PLANS</span><h2>Start free. Upgrade when you grow.</h2><p>Subscription limits apply to platform automation. Your AI provider usage is billed separately by your own provider.</p></div>
+            <div className="section-head"><span className="eyebrow">SIMPLE, TRANSPARENT PRICING</span><h2>Start free. Upgrade when you grow.</h2><p>Subscription limits apply to platform automation. Your AI provider usage is billed separately by your own provider.</p></div>
             <div className="pricing-grid">
-              <article className="plan"><h3>Free</h3><p>Try the complete workflow on a smaller schedule.</p><div className="price">$0 <small>/ month</small></div><ul><li>1 episode per day</li><li>One podcast workspace</li><li>Bring your own AI keys</li><li>Your own Spreaker account</li><li>Hosted Podcasti audio generation</li></ul><Link className="btn btn-outline" href="/signup">Start free</Link></article>
-              <article className="plan featured"><span className="eyebrow">POPULAR CHOICE</span><h3 style={{marginTop:14}}>Pro</h3><p>For creators who want a more active publishing schedule.</p><div className="price">Coming soon</div><ul><li>Higher daily episode allowance</li><li>Expanded sports feed controls</li><li>Advanced scheduling</li><li>Automatic or approval publishing</li><li>Extended episode history</li></ul><a className="btn btn-primary" href="mailto:hello@automatespreakerpodcast.com">Join the waitlist</a></article>
-              <article className="plan"><h3>Business</h3><p>For teams managing multiple podcast shows.</p><div className="price">Coming soon</div><ul><li>Multiple podcast workspaces</li><li>Higher automation allowances</li><li>Team access options</li><li>Advanced reporting</li><li>Priority support</li></ul><a className="btn btn-outline" href="mailto:hello@automatespreakerpodcast.com">Contact us</a></article>
+              <article className="plan"><h3>Free</h3><p>Try Podcasti before choosing a paid subscription.</p><div className="price">KSh 0</div><ul><li>3 manual runs for the lifetime of the account</li><li>Up to 5,000 script characters per episode</li><li>Up to 2 RSS feeds</li><li>One Podcasti voice: Bella</li><li>No automatic scheduled runs</li><li>Bring your own Groq or Gemini and Spreaker accounts</li></ul><Link className="btn btn-outline" href="/signup">Start free</Link></article>
+              <article className="plan featured"><span className="eyebrow">50% LAUNCH OFFER · POPULAR</span><h3 style={{marginTop:14}}>Monthly</h3><p>Full podcast automation, billed every month.</p><div className="price">KSh 3,000 <small>/ month</small></div><p><del>KSh 6,000</del> · Save 50%</p><ul><li>Up to 3 episodes per day</li><li>90 episodes per rolling 30 days</li><li>Up to 20 RSS feeds</li><li>Up to 50,000 script characters per episode</li><li>All standard Podcasti voices</li><li>Automatic schedules and manual runs</li></ul><Link className="btn btn-primary" href="/signup">Choose Monthly</Link></article>
+              <article className="plan"><span className="eyebrow">50% LAUNCH OFFER</span><h3 style={{marginTop:14}}>Yearly</h3><p>One payment for a full year of Podcasti.</p><div className="price">KSh 15,000 <small>/ year</small></div><p><del>KSh 30,000</del> · Save 50%</p><ul><li>Everything in Monthly</li><li>12 months of access</li><li>Equivalent to KSh 1,250 per month</li><li>Save KSh 21,000 versus 12 monthly payments</li><li>Renew by M-Pesa when your year ends</li></ul><Link className="btn btn-outline" href="/signup">Choose Yearly</Link></article>
             </div>
+            <p className="microcopy" style={{textAlign:"center",marginTop:18}}>Your AI provider and Spreaker fees are paid separately to those providers. Subscription limits apply to Podcasti platform usage. Paid usage: maximum 3 episodes per day and 90 in any rolling 30-day period.</p>
           </div>
         </section>
 
         <section className="section section-soft"><div className="container"><div className="callout"><div><h2>Ready to automate your podcast?</h2><p>Start with one episode a day and build your workflow at your own pace.</p></div><Link className="btn btn-primary" href="/signup">Explore the dashboard →</Link></div></div></section>
       </main>
-      <footer className="site-footer"><div className="container footer-inner"><span>© {new Date().getFullYear()} Automate Spreaker Podcast</span><span>Built for independent podcast creators.</span></div></footer>
+      <footer className="site-footer"><div className="container footer-inner"><span>© {new Date().getFullYear()} Podcasti</span><span>Built for independent podcast creators.</span></div></footer>
     </>
   );
 }

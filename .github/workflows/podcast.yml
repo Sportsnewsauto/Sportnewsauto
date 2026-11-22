@@ -1,11 +1,8 @@
 
-name: Automated Podcast
+name: Legacy Single-Account Podcast (Manual Only)
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 0,3,6,9,12,15,18,21 * * *"
-      timezone: "Africa/Nairobi"
 
 permissions:
   contents: write

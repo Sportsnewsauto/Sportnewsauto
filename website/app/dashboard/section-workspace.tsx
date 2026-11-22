@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import SubscriptionManager from "./subscription-manager";
 import { createClient } from "@/lib/supabase/client";
 
 type Section = "ai-configuration" | "audio-settings" | "publishing-schedule" | "episodes" | "subscription" | "support" | "settings";
@@ -30,7 +31,7 @@ const defaultSettings: WorkspaceSettings = {
   country: "KE",
   spreaker_show_id: "",
   timezone: "Africa/Nairobi",
-  minimum_narration_characters: 13500,
+  minimum_narration_characters: 5000,
   tts_provider: "kokoro",
   tts_voice: "af_bella",
   publishing_mode: "automatic",
@@ -90,7 +91,7 @@ export default function SectionWorkspace({ section }: { section: Section }) {
     return <ConfigurationForm section={section} />;
   }
   if (section === "episodes") return <EpisodesList />;
-  if (section === "subscription") return <SubscriptionPanel />;
+  if (section === "subscription") return <SubscriptionManager />;
   if (section === "settings") return <WorkspaceProfile />;
   return <SupportPanel />;
 }
@@ -103,6 +104,7 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isPaid, setIsPaid] = useState(false);
   const [scriptLimit, setScriptLimit] = useState(5000);
 
   useEffect(() => {
@@ -110,12 +112,19 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
     async function load() {
       const [{ data, error }, { data: workspace }] = await Promise.all([
         supabase.from("workspace_settings").select("*").maybeSingle(),
-        supabase.from("workspaces").select("plan").maybeSingle(),
+        supabase.from("workspaces").select("plan,subscription_status,subscription_expires_at").maybeSingle(),
       ]);
       if (!active) return;
       const adminWorkspace = workspace?.plan === "admin";
-      const planLimit = !workspace?.plan || workspace.plan === "free" ? 5000 : 50000;
+      const expiry = workspace?.subscription_expires_at ? Date.parse(workspace.subscription_expires_at) : 0;
+      const paidWorkspace = adminWorkspace || (
+        ["pro", "business"].includes(workspace?.plan ?? "") &&
+        workspace?.subscription_status === "active" &&
+        expiry > Date.now()
+      );
+      const planLimit = paidWorkspace ? 50000 : 5000;
       setIsAdmin(adminWorkspace);
+      setIsPaid(paidWorkspace && !adminWorkspace);
       setScriptLimit(planLimit);
       if (error) {
         setError("Workspace settings are not available. Apply all Supabase migrations, including 0007 and 0008, then refresh this page.");
@@ -133,6 +142,8 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
             ? savedInterval
             : defaultSettings.publishing_interval_hours,
         });
+      } else {
+        setForm({ ...defaultSettings, minimum_narration_characters: planLimit, tts_voice: "af_bella" });
       }
       setLoading(false);
     }
@@ -243,21 +254,22 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
               onChange={e => update("minimum_narration_characters", Number(e.target.value))}
             />
           </label>
-          <p className="microcopy">{scriptLimit === 5000 ? "Free accounts and accounts without a paid plan are limited to 5,000 narration characters per episode." : "Your current plan allows up to 50,000 narration characters per episode."} Every account uses the same platform writing instructions and AI models. Connect your own Groq and/or Gemini API keys in API Connections.</p>
+          <p className="microcopy">{scriptLimit === 5000 ? "Free accounts are capped at 5,000 narration characters per episode." : "Paid plans allow up to 50,000 narration characters per episode."} Every account uses the same platform writing instructions and AI models. Connect your own Groq and/or Gemini API keys in API Connections.</p>
         </>}
         {section === "audio-settings" && <>
           <label>Text-to-speech provider<input value="Podcasti (provided by platform)" readOnly /></label>
           <label>Podcasti voice
-            <select required value={form.tts_voice} onChange={e => update("tts_voice", e.target.value)}>
-              {PODCASTI_VOICES.filter(voice => isAdmin || !ADMIN_ONLY_PODCASTI_VOICES.includes(voice.id)).map(voice => (
+            <select required disabled={!isAdmin && !isPaid} value={form.tts_voice} onChange={e => update("tts_voice", e.target.value)}>
+              {PODCASTI_VOICES.filter(voice => isAdmin || (isPaid ? !ADMIN_ONLY_PODCASTI_VOICES.includes(voice.id) : voice.id === "af_bella")).map(voice => (
                 <option key={voice.id} value={voice.id}>{voice.label}{("adminOnly" in voice && voice.adminOnly) ? " (Admin only)" : ""}</option>
               ))}
             </select>
           </label>
-          <p className="microcopy">Choose from Podcasti's American and British English voices. The Heart and Michael voices are reserved for the admin workspace.</p>
+          <p className="microcopy">Free includes Bella only. Paid plans unlock all standard Podcasti voices. Heart and Michael are reserved for the Admin workspace.</p>
         </>}
         {section === "publishing-schedule" && <>
-          <label className="automation-toggle"><span><strong>Enable scheduled episode generation</strong><small>Leave this off until your Spreaker, AI and sports feed connections are ready.</small></span><input type="checkbox" checked={form.automation_enabled} onChange={e => update("automation_enabled", e.target.checked)} /></label>
+          <label className="automation-toggle"><span><strong>Enable scheduled episode generation</strong><small>{isPaid || isAdmin ? "Leave this off until your Spreaker, AI and sports feed connections are ready." : "Automatic schedules are available on Monthly and Yearly paid plans."}</small></span><input type="checkbox" checked={isPaid || isAdmin ? form.automation_enabled : false} disabled={!isPaid && !isAdmin} onChange={e => update("automation_enabled", e.target.checked)} /></label>
+          {!isPaid && !isAdmin && <Link className="btn btn-outline" href="/dashboard/subscription">Upgrade to enable scheduled automation</Link> }
           <label>Publishing mode<select value={form.publishing_mode} onChange={e => update("publishing_mode", e.target.value as "automatic" | "review")}><option value="automatic">Automatic publishing</option><option value="review">Review before publishing</option></select></label>
           <label>Timezone<input required value={form.timezone} onChange={e => update("timezone", e.target.value)} /></label>
           <label>Episode generation interval
@@ -268,7 +280,7 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
               <option value={8}>Every 8 hours</option>
             </select>
           </label>
-          <p className="microcopy">The worker checks every five minutes and creates episodes at your selected interval. Your account's daily episode allowance still applies. Scheduled generation remains off until you enable it above.</p>
+          <p className="microcopy">The worker checks every five minutes. Paid accounts are limited to 3 episodes per day and 90 episodes per rolling 30 days. Free accounts can run three manual episodes only.</p>
         </>}
         {error && <Notice error>{error}</Notice>}
         {notice && <Notice>{notice}</Notice>}
@@ -407,6 +419,6 @@ function WorkspaceProfile() {
 function SupportPanel() {
   return <section className="dash-main">
     <div className="dash-top"><div><p className="section-kicker">HELP</p><h1>Support</h1><p>Setup notes and help for your podcast workspace.</p></div></div>
-    <div className="panel"><h2>Before connecting services</h2><p>Use API Connections to save provider credentials once the encrypted credential vault is configured. Never put private API keys into public feeds, episode descriptions or chat messages.</p><h2>Current implementation status</h2><ul><li>Account registration, login and private workspace: active.</li><li>Podcast and schedule preferences: saved in Supabase after migration 0002.</li><li>Feed and advertising configuration: saved in Supabase after migration 0002.</li><li>Manual and scheduled episode generation: queued for the multi-workspace worker; generated episodes appear in Episodes.</li><li>Subscriptions and payments: not enabled.</li></ul><Link href="/dashboard" className="btn btn-outline">Back to overview</Link></div>
+    <div className="panel"><h2>Before connecting services</h2><p>Use API Connections to save provider credentials once the encrypted credential vault is configured. Never put private API keys into public feeds, episode descriptions or chat messages.</p><h2>Current implementation status</h2><ul><li>Account registration, login and private workspace: active.</li><li>Podcast and schedule preferences: saved in Supabase after migration 0002.</li><li>Feed and advertising configuration: saved in Supabase after migration 0002.</li><li>Manual and scheduled episode generation: queued for the multi-workspace worker; generated episodes appear in Episodes.</li><li>Subscriptions: Free, Monthly and Yearly plans with usage limits.</li><li>M-Pesa payments activate subscriptions only after a validated Safaricom callback; merchant setup is required.</li></ul><Link href="/dashboard" className="btn btn-outline">Back to overview</Link></div>
   </section>;
 }
