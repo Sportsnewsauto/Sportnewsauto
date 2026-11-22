@@ -207,7 +207,7 @@ export default function SubscriptionManager() {
               {status.mpesa_ready && <p className="microcopy">Direct Safaricom M-Pesa STK checkout is also available when configured.</p>}
             </div>
             {status.pending_payment && <div className="auth-notice" style={{ marginTop: 16 }}>
-              {status.pending_payment.payment_provider === "flutterwave" ? (status.pending_payment.result_description?.toLowerCase().includes("card") ? "Flutterwave card" : "Flutterwave M-Pesa") : "Safaricom M-Pesa"} payment pending for the {status.pending_payment.plan_interval} plan (KSh {status.pending_payment.amount_ksh.toLocaleString()}). Complete the payment on your phone, then refresh this page to check the result.
+              {status.pending_payment.payment_provider === "flutterwave" ? (status.pending_payment.result_description?.toLowerCase().includes("card") ? "Flutterwave card" : "Flutterwave M-Pesa") : "Safaricom M-Pesa"} payment pending for the {status.pending_payment.plan_interval} plan (KSh {status.pending_payment.amount_ksh.toLocaleString()}). Complete the payment with Flutterwave or M-Pesa, then refresh this page to check the result.
               {status.pending_payment.payment_provider === "flutterwave" && status.pending_payment.result_description && <p className="microcopy">{status.pending_payment.result_description}</p>}
             </div>}
             <div className="integration-actions" style={{ marginTop: 14 }}>
