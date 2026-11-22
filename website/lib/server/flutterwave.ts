@@ -172,7 +172,11 @@ export async function getKenyanMpesaNetwork(): Promise<string> {
   if (!mpesa?.network) {
     throw new Error("Flutterwave did not return a supported M-Pesa network for Kenya.");
   }
-  return mpesa.network;
+
+  // The V4 payment-method endpoint expects its canonical network code.
+  // The mobile-networks discovery response can label the Kenyan operator
+  // as "SAFARICOM", but V4 explicitly accepts "MPESA" for Kenya.
+  return "MPESA";
 }
 
 /**
