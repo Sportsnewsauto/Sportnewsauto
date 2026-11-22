@@ -9,6 +9,7 @@ import base64
 import json
 import os
 import unittest
+from datetime import datetime, timezone
 
 # tenant_worker reads its required environment at import time. Set harmless
 # test-only values before importing it.
@@ -40,6 +41,45 @@ def encrypted_row(provider: str, value: str) -> dict[str, str]:
 
 
 class CredentialIsolationTests(unittest.TestCase):
+    def test_admin_only_kokoro_voices_are_blocked_for_customer_workspaces(self):
+        for reserved_voice in ("af_heart", "am_michael"):
+            env = tenant_worker.build_workspace_process_env(
+                {"PATH": "/usr/bin"},
+                settings={"tts_voice": reserved_voice},
+                groq_key="customer-groq-key",
+                gemini_key="",
+                verified_providers={"groq"},
+                spreaker_token="customer-spreaker-token",
+                show_id="show-a",
+                ad_slots=[],
+                workspace_plan="free",
+            )
+            self.assertEqual(env["KOKORO_VOICE"], "af_bella")
+
+    def test_admin_workspace_can_use_reserved_kokoro_voices(self):
+        for reserved_voice in ("af_heart", "am_michael"):
+            env = tenant_worker.build_workspace_process_env(
+                {"PATH": "/usr/bin"},
+                settings={"tts_voice": reserved_voice},
+                groq_key="admin-groq-key",
+                gemini_key="",
+                verified_providers={"groq"},
+                spreaker_token="admin-spreaker-token",
+                show_id="admin-show",
+                ad_slots=[],
+                workspace_plan="admin",
+            )
+            self.assertEqual(env["KOKORO_VOICE"], reserved_voice)
+
+    def test_selected_interval_generates_schedule_slots_in_workspace_timezone(self):
+        current = datetime(2026, 11, 22, 3, 30, tzinfo=timezone.utc)
+        slot = tenant_worker.due_schedule_slot(
+            {"timezone": "Africa/Nairobi", "publishing_interval_hours": 6},
+            {"timezone": "Africa/Nairobi"},
+            current,
+        )
+        self.assertEqual(slot, datetime(2026, 11, 22, 3, 0, tzinfo=timezone.utc))
+
     def test_credentials_are_requested_only_for_the_current_owner(self):
         db = WorkspaceScopedDatabase({
             "customer-a": [encrypted_row("groq", "customer-a-groq-key")],
