@@ -133,24 +133,38 @@ export async function POST(request: NextRequest) {
         redirect_url: appUrl + "/api/billing/flutterwave/callback",
         customer: { email: user.email },
         payment_options: "card, mpesa",
-        session_duration: 30,
-        max_retry_attempt: 3,
         customizations: {
           title: "Podcasti",
           description: interval === "monthly"
             ? "Podcasti monthly subscription"
             : "Podcasti yearly subscription",
         },
-        meta: {
-          product: "Podcasti subscription",
-          plan_interval: interval,
-        },
       },
     });
 
-    const checkoutUrl = validFlutterwaveCheckout(result.data?.link);
-    if (result.status !== "success" || !checkoutUrl) {
-      throw new Error("Flutterwave did not return a valid hosted checkout link.");
+    const providerMessage = typeof result.message === "string"
+      ? result.message.replace(/[\\r\\n\\t]+/g, " ").slice(0, 180)
+      : "";
+    const dataKeys = result.data && typeof result.data === "object"
+      ? Object.keys(result.data as Record<string, unknown>).slice(0, 12)
+      : [];
+
+    if (result.status !== "success") {
+      throw new Error(
+        "Flutterwave checkout returned status " + String(result.status || "missing") +
+        (providerMessage ? ": " + providerMessage : "."),
+      );
+    }
+
+    const rawLink = result.data?.link;
+    const checkoutUrl = validFlutterwaveCheckout(rawLink);
+    if (!checkoutUrl) {
+      const detail = !rawLink
+        ? "Flutterwave returned no data.link (data fields: " + (dataKeys.join(", ") || "none") + ")."
+        : "Flutterwave returned a checkout URL on an unsupported host.";
+      throw new Error(
+        detail + (providerMessage ? " Provider message: " + providerMessage : ""),
+      );
     }
     checkoutCreated = true;
 
