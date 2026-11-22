@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   vinext-compatibility:
@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -30,5 +32,39 @@ jobs:
       - name: Install existing application dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Check Next.js compatibility with Cloudflare vinext
+      - name: Confirm Next.js compatibility
         run: npx --yes vinext check
+
+      - name: Initialize Cloudflare Workers configuration
+        run: npx --yes vinext init --platform=cloudflare --name=sportnewsauto --cdn-cache=none --data-cache=none --image-optimization=none
+
+      - name: Add Cloudflare-generated TypeScript types
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = "tsconfig.json";
+          const config = JSON.parse(fs.readFileSync(path, "utf8"));
+          config.include = config.include || [];
+          if (!config.include.includes(".cloudflare/types/**/*.ts")) {
+            config.include.push(".cloudflare/types/**/*.ts");
+          }
+          fs.writeFileSync(path, JSON.stringify(config, null, 2) + "\n");
+          NODE
+
+      - name: Build for Cloudflare Workers
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run build:vinext
+
+      - name: Commit Cloudflare migration files to the test branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json tsconfig.json vite.config.ts cloudflare.config.ts
+          if git diff --cached --quiet; then
+            echo "No generated Cloudflare configuration changes to commit."
+          else
+            git commit -m "Prepare website for Cloudflare Workers"
+            git push origin HEAD:cloudflare-migration-check
+          fi
