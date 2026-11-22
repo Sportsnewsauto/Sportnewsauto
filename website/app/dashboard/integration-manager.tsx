@@ -191,7 +191,6 @@ export default function IntegrationManager() {
             </a>
           </div>
         </div>
-        </div>
       </div>
 
       <div className="spreaker-credentials-grid">
