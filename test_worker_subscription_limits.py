@@ -42,7 +42,7 @@ class PendingWorkerOutputTests(unittest.TestCase):
             with redirect_stdout(stdout), redirect_stderr(stderr):
                 tenant_worker.report_pending_work_status()
 
-        self.assertEqual(stdout.getvalue(), "true\\n")
+        self.assertEqual(stdout.getvalue().strip(), "true")
         self.assertIn("Scheduled generation job", stderr.getvalue())
 
 
