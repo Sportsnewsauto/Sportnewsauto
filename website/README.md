@@ -85,4 +85,4 @@ In Supabase Authentication → URL Configuration, set the Site URL to the deploy
 - Configure reliable email delivery for password recovery and account notifications. The built-in Supabase email service has restrictive default sending limits.
 - Connect a payment provider and define paid plan prices before accepting subscriptions. Payments are not enabled and no charges are made by the site.
 
-The existing single-account workflow in `.github/workflows/podcast.yml` remains separate and unchanged. Do not put multiple users' credentials into that workflow's shared repository secrets.
+The legacy single-account workflow in `.github/workflows/podcast.yml` is manual-only and is no longer scheduled. All recurring workspace publishing is handled by `.github/workflows/multi-tenant-podcast-worker.yml`. Do not run both workflows for the same Spreaker show or put multiple users' credentials into the legacy workflow's shared repository secrets.
