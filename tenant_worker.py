@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import json
+from contextlib import redirect_stdout
 import os
 import shutil
 import subprocess
@@ -1006,6 +1007,15 @@ def check_pending_work() -> bool:
     return bool(recoverable)
 
 
+def report_pending_work_status() -> None:
+    """Print only the boolean consumed by GitHub Actions; keep diagnostics on stderr."""
+    # The scheduled-slot scan may log newly created jobs. Those messages must
+    # not be mixed with the machine-readable value written to GITHUB_OUTPUT.
+    with redirect_stdout(sys.stderr):
+        has_work = check_pending_work()
+    print("true" if has_work else "false", flush=True)
+
+
 def main():
     if len(CREDENTIAL_ENCRYPTION_KEY) != 32:
         raise RuntimeError("CREDENTIAL_ENCRYPTION_KEY must decode to exactly 32 bytes.")
@@ -1018,7 +1028,7 @@ def main():
 if __name__ == "__main__":
     try:
         if "--check-pending" in sys.argv:
-            print("true" if check_pending_work() else "false", flush=True)
+            report_pending_work_status()
         else:
             main()
     except Exception as exc:

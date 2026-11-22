@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import base64
+import io
 import os
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
+from unittest.mock import patch
 from datetime import datetime, timezone
 
 os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
@@ -24,6 +27,23 @@ class RecordingDatabase:
     def select(self, table, **params):
         self.calls.append((table, params))
         return self.rows
+
+
+class PendingWorkerOutputTests(unittest.TestCase):
+    def test_pending_check_keeps_stdout_machine_readable(self):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        def noisy_pending_check():
+            print("Scheduled generation job for 2026-11-22T09:00:00+00:00.")
+            return True
+
+        with patch.object(tenant_worker, "check_pending_work", side_effect=noisy_pending_check):
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                tenant_worker.report_pending_work_status()
+
+        self.assertEqual(stdout.getvalue().strip(), "true")
+        self.assertIn("Scheduled generation job", stderr.getvalue())
 
 
 class SubscriptionEntitlementTests(unittest.TestCase):
