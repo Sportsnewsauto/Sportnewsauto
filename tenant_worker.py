@@ -618,11 +618,7 @@ def process_queued_jobs(db: SupabaseRest):
         payload = job.get("payload") if isinstance(job.get("payload"), dict) else {}
         recovery_episode = payload.get("recovery_episode")
         recovery_stage = payload.get("worker_stage") in {"spreaker_published", "spreaker_review_ready"}
-        is_recovery = (
-            job.get("status") == "processing"
-            and recovery_stage
-            and isinstance(recovery_episode, dict)
-        )
+        is_recovery = recovery_stage and isinstance(recovery_episode, dict)
 
         # Only recover processing jobs that have a durable post-Spreaker
         # checkpoint. Other processing jobs may still belong to an active run.
@@ -734,9 +730,7 @@ def process_queued_jobs(db: SupabaseRest):
                     "source_data": {"worker_job_id": job_id},
                 }
                 try:
-                    existing_failure = find_episode_for_worker_job(db, owner_id, job_id)
-                    if not existing_failure:
-                        db.insert("episodes", failure_episode)
+                    save_worker_episode(db, failure_episode, job_id)
                 except Exception as save_error:
                     print(
                         f"Could not save failure detail for job {job_id}: {type(save_error).__name__}: {save_error}",
