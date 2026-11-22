@@ -27,8 +27,7 @@ export async function GET() {
       .select("id", { count: "exact", head: true })
       .eq("owner_id", user.id)
       .eq("job_type", "generate_episode")
-      .filter("payload->>source", "eq", "manual")
-      .neq("status", "cancelled"),
+      .filter("payload->>source", "eq", "manual"),
     supabase
       .from("workspaces")
       .select("plan,subscription_status,subscription_expires_at")
