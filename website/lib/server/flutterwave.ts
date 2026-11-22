@@ -179,6 +179,99 @@ export async function getKenyanMpesaNetwork(): Promise<string> {
   return "MPESA";
 }
 
+export function verifyFlutterwaveV3WebhookHash(providedHash: string): boolean {
+  const expectedHash = process.env.FLUTTERWAVE_WEBHOOK_HASH?.trim();
+  if (!expectedHash || !providedHash) return false;
+  const expected = Buffer.from(expectedHash, "utf8");
+  const provided = Buffer.from(providedHash, "utf8");
+  return expected.length === provided.length && timingSafeEqual(expected, provided);
+}
+
+export function isFlutterwaveCardCheckoutConfigured() {
+  return Boolean(
+    process.env.FLUTTERWAVE_V3_SECRET_KEY?.trim() &&
+    process.env.FLUTTERWAVE_WEBHOOK_HASH?.trim()
+  );
+}
+
+/**
+ * Verify a V3 hosted-card transaction directly with Flutterwave before
+ * allowing the shared subscription RPC to activate access.
+ */
+export async function completeVerifiedFlutterwaveCardPayment(reference: string, transactionId: string) {
+  const secretKey = process.env.FLUTTERWAVE_V3_SECRET_KEY?.trim();
+  if (!reference.startsWith("pc") || !transactionId || !secretKey || !isFlutterwaveConfigured()) {
+    return false;
+  }
+
+  const admin = createAdminClient();
+  const { data: payment, error: paymentError } = await admin
+    .from("billing_payments")
+    .select("id,amount_ksh,status,payment_provider,flutterwave_transaction_id")
+    .eq("tx_ref", reference)
+    .eq("payment_provider", "flutterwave")
+    .maybeSingle();
+
+  if (paymentError || !payment || payment.status === "failed") return false;
+  if (payment.flutterwave_transaction_id && payment.flutterwave_transaction_id !== transactionId) {
+    return false;
+  }
+
+  const response = await fetch(
+    `https://api.flutterwave.com/v3/transactions/${encodeURIComponent(transactionId)}/verify`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+        Accept: "application/json",
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(20000),
+    },
+  );
+  const envelope = await response.json().catch(() => ({})) as {
+    status?: string;
+    message?: string;
+    data?: {
+      id?: string | number;
+      tx_ref?: string;
+      status?: string;
+      amount?: number | string;
+      currency?: string;
+      payment_type?: string;
+    };
+  };
+
+  const transaction = envelope.data;
+  if (
+    !response.ok ||
+    envelope.status !== "success" ||
+    !transaction ||
+    String(transaction.id) !== transactionId ||
+    transaction.tx_ref !== reference ||
+    String(transaction.status).toLowerCase() !== "successful" ||
+    String(transaction.payment_type).toLowerCase() !== "card" ||
+    String(transaction.currency).toUpperCase() !== "KES" ||
+    !Number.isSafeInteger(Number(transaction.amount)) ||
+    Number(transaction.amount) !== Number(payment.amount_ksh)
+  ) {
+    return false;
+  }
+
+  const { error } = await admin.rpc("complete_flutterwave_subscription", {
+    p_tx_ref: reference,
+    p_transaction_id: transactionId,
+    p_amount: Number(transaction.amount),
+    p_currency: String(transaction.currency),
+    p_callback_payload: {
+      verification_source: "flutterwave_v3_hosted_card",
+      transaction: transaction,
+    },
+  });
+
+  return !error;
+}
+
 /**
  * V4 webhooks sign the unmodified request body with HMAC-SHA256 and Base64.
  * The raw body must be verified before JSON parsing.
