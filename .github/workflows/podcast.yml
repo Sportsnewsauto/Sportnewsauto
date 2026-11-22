@@ -1,11 +1,10 @@
 
-name: Automated Podcast
+name: Legacy Single-Account Podcast (Manual Only)
 
+# The multi-tenant worker now owns all scheduled publishing. This legacy
+# single-account workflow is retained only for deliberate manual recovery.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 0,3,6,9,12,15,18,21 * * *"
-      timezone: "Africa/Nairobi"
 
 permissions:
   contents: write
