@@ -27,7 +27,7 @@ export function isMpesaConfigured() {
 }
 
 export function mpesaBaseUrl() {
-  return process.env.MPESA_ENV === "sandbox"
-    ? "https://sandbox.safaricom.co.ke"
-    : "https://api.safaricom.co.ke";
+  return process.env.MPESA_ENV === "production"
+    ? "https://api.safaricom.co.ke"
+    : "https://sandbox.safaricom.co.ke";
 }
