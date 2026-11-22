@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "The payment callback URL must be HTTPS. Check APP_BASE_URL in Cloudflare." }, { status: 503 });
   }
 
+  let chargeCreated = false;
   try {
     const network = await getKenyanMpesaNetwork();
 
@@ -179,6 +180,7 @@ export async function POST(request: NextRequest) {
     ) {
       throw new Error("Flutterwave did not return a valid charge.");
     }
+    chargeCreated = true;
 
     const instruction = charge.next_action?.payment_instruction?.note
       || "Flutterwave has sent an M-Pesa payment request to your phone. Check your phone and approve it to complete the payment.";
@@ -208,7 +210,12 @@ export async function POST(request: NextRequest) {
       message: instruction,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch {
-    await markPaymentFailed(admin, reference, "Flutterwave V4 could not start or record the M-Pesa charge.");
+    // Do not mark a charge failed after Flutterwave created it. If saving the
+    // local reference transiently fails, the signed webhook/callback can still
+    // verify it by the unique merchant reference.
+    if (!chargeCreated) {
+      await markPaymentFailed(admin, reference, "Flutterwave V4 could not start the M-Pesa charge.");
+    }
     return NextResponse.json({
       error: "Flutterwave could not start the M-Pesa payment. Check your live account setup and try again.",
     }, { status: 502 });
