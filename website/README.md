@@ -83,6 +83,6 @@ In Supabase Authentication → URL Configuration, set the Site URL to the deploy
 - For each workspace, connect Spreaker, select a show, connect the chosen Groq or Gemini provider, enable news feeds and then explicitly enable scheduled generation. The worker checks the queue every five minutes, uses each workspace's saved 2/4/6/8-hour interval for scheduled runs, and enforces each workspace's daily limit.
 - Accept Spreaker's Ad Exchange terms in the Spreaker account if you want Spreaker to use the submitted advertising cue points. Cue points are not the same as supplying your own ad audio or campaigns.
 - Configure reliable email delivery for password recovery and account notifications. The built-in Supabase email service has restrictive default sending limits.
-- Connect a payment provider and define paid plan prices before accepting subscriptions. Payments are not enabled and no charges are made by the site.
+- Configure Safaricom Daraja sandbox/production credentials, the server-only Supabase secret key and public HTTPS callback URL before enabling M-Pesa subscriptions. A paid plan activates only after a verified Safaricom callback.
 
-The existing single-account workflow in `.github/workflows/podcast.yml` remains separate and unchanged. Do not put multiple users' credentials into that workflow's shared repository secrets.
+The legacy single-account workflow in `.github/workflows/podcast.yml` is manual-only and no longer scheduled. All recurring workspace publishing is handled by `.github/workflows/multi-tenant-podcast-worker.yml`. Do not run both workflows for the same Spreaker show or put multiple users' credentials into the legacy workflow's shared repository secrets.
