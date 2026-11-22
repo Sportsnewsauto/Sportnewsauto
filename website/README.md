@@ -19,6 +19,13 @@ Set these in the Vercel project (and in `website/.env.local` for local developme
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `CREDENTIAL_ENCRYPTION_KEY` — server-only, base64-encoded 32-byte key for AES-256-GCM. Never prefix it with `NEXT_PUBLIC_`, commit it, or put it in browser code.
+- `GITHUB_APP_ID` — the App ID (not Client ID) of the GitHub App used to start the worker immediately.
+- `GITHUB_APP_PRIVATE_KEY` — the private key for that GitHub App. Keep it server-only; never prefix it with `NEXT_PUBLIC_` or commit it.
+- `GITHUB_REPOSITORY` — repository in `owner/name` format; defaults to `Sportsnewsauto/Sportnewsauto`.
+- `GITHUB_DEFAULT_BRANCH` — branch to dispatch; defaults to `main`.
+
+The GitHub App must be installed on the `Sportsnewsauto/Sportnewsauto` repository and granted **Actions: write** permission. After changing the App permission, approve the permission update for the repository installation. The website uses the App private key to mint a short-lived installation token and dispatch `.github/workflows/multi-tenant-podcast-worker.yml`. No long-lived GitHub personal access token is stored by the website. If the App credentials are not configured or dispatch fails, the existing five-minute scheduled worker remains the fallback.
+
 - No platform-wide Spreaker OAuth Client ID or Client Secret is required. Each workspace owner enters their own Client ID and Client Secret in Dashboard → API Connections; they are encrypted with that user's credential record.
 - Each user's Spreaker Developer App must register this callback URL: `https://sportnewsauto.vercel.app/api/integrations/spreaker/callback`.
 
@@ -47,6 +54,7 @@ Run these SQL files in order in the Supabase SQL Editor:
 7. `supabase/migrations/0007_shared_ai_policy_and_script_length.sql`
 8. `supabase/migrations/0008_user_voice_schedule_preferences.sql`
 9. `supabase/migrations/0009_manual_automation_trial.sql`
+10. `supabase/migrations/0010_free_script_limit.sql`
 
 In Supabase Authentication → URL Configuration, set the Site URL to the deployed website and allow the deployed authentication callback URL.
 
@@ -61,13 +69,15 @@ In Supabase Authentication → URL Configuration, set the Site URL to the deploy
 - Server-side AES-256-GCM encryption for Spreaker, Groq and Gemini credentials. Migration 0003 removes direct browser access to encrypted credential rows.
 - Spreaker server-side OAuth authorization-code flow with CSRF state validation, encrypted access/refresh token storage, editable show selection and automatic access-token refresh.
 - A separate multi-workspace GitHub Actions worker. It reads each workspace's own feeds, AI credentials, Spreaker show, schedule and ad slots; enforces the saved daily episode limit; supports scheduled publishing, review drafts and manual publishing from the dashboard and Episodes screen.
-- A one-click manual automation run. The first generated episode is flagged as the workspace's free trial; manual runs use the owner's connected services, count toward the daily episode allowance, and do not enable recurring scheduling. Queued jobs are picked up by the worker's five-minute check.
+- A one-click manual automation run. The first generated episode is flagged as the workspace's free trial; manual runs use the owner's connected services, count toward the daily episode allowance, and do not enable recurring scheduling.
+- Manual runs request an immediate GitHub Actions worker dispatch when the GitHub App credentials are configured. The five-minute scheduled workflow remains as a fallback.
 - Separate syntax checks for the Python worker and upload scripts.
 - Episode and subscription screens.
 
 ## Still requires external setup
 
-- Run all Supabase migrations through 0009 in order. Migration 0009 installs the secure manual-run queue function.
+- Run all Supabase migrations through 0010 in order. Migration 0009 installs the secure manual-run queue function; migration 0010 enforces the free-plan narration character limit.
+- Configure the GitHub App credentials as server-only Vercel environment variables and grant the installed App Actions: write permission for immediate manual-run dispatch. Redeploy the website after adding or changing these values.
 - Each user registers the website callback URL in their own Spreaker Developer App, then saves their own Client ID and Client Secret under Dashboard → API Connections.
 - For a new deployment, add the GitHub Actions worker secrets listed above. The worker skips processing when required secrets are missing.
 - For each workspace, connect Spreaker, select a show, connect the chosen Groq or Gemini provider, enable news feeds and then explicitly enable scheduled generation. The worker checks the queue every five minutes, uses each workspace's saved 2/4/6/8-hour interval for scheduled runs, and enforces each workspace's daily limit.
