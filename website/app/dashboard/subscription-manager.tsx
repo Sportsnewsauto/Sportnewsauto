@@ -151,7 +151,7 @@ export default function SubscriptionManager() {
                 <ul><li>Up to 3 episodes per day</li><li>90 episodes per rolling 30 days</li><li>20 RSS feeds</li><li>Up to 50,000 script characters</li><li>All standard Podcasti voices</li><li>Automatic scheduling and manual runs</li></ul>
                 <div className="integration-actions">
                   {status.flutterwave_ready && <button className="btn btn-primary" disabled={busy} onClick={() => void startFlutterwave("monthly")}>Pay by card or M-Pesa</button>}
-                  {status.mpesa_ready && <button className="btn btn-outline" disabled={busy} onClick={() => void startPayment("monthly")}>Pay directly with M-Pesa</button>}
+                  {status.mpesa_ready && <button className="btn btn-outline" disabled={busy || !phone.trim()} onClick={() => void startPayment("monthly")}>Pay directly with M-Pesa</button>}
                 </div>
               </article>
               <article className="plan featured">
@@ -163,7 +163,7 @@ export default function SubscriptionManager() {
                 <ul><li>Everything in Monthly</li><li>12 months of access</li><li>Equivalent to KSh 1,250 per month</li><li>Save KSh 21,000 versus 12 monthly payments</li></ul>
                 <div className="integration-actions">
                   {status.flutterwave_ready && <button className="btn btn-primary" disabled={busy} onClick={() => void startFlutterwave("yearly")}>Pay online with Flutterwave</button>}
-                  {status.mpesa_ready && <button className="btn btn-outline" disabled={busy} onClick={() => void startPayment("yearly")}>Pay directly with M-Pesa</button>}
+                  {status.mpesa_ready && <button className="btn btn-outline" disabled={busy || !phone.trim()} onClick={() => void startPayment("yearly")}>Pay directly with M-Pesa</button>}
                 </div>
               </article>
             </div>
