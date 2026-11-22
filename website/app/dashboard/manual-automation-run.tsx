@@ -26,8 +26,8 @@ export default function ManualAutomationRun() {
   const [submitting, setSubmitting] = useState(false);
   const [wakingWorker, setWakingWorker] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
-  const [manualRunsUsed, setManualRunsUsed] = useState(0);
-  const [manualRunsRemaining, setManualRunsRemaining] = useState<number | null>(3);
+  const [freeEpisodesUsed, setFreeEpisodesUsed] = useState(0);
+  const [freeEpisodesRemaining, setFreeEpisodesRemaining] = useState<number | null>(1);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -38,8 +38,8 @@ export default function ManualAutomationRun() {
       if (!response.ok) throw new Error(data.error || "Could not load automation status.");
       setJob(data.job ?? null);
       setIsPaid(data.is_paid === true);
-      setManualRunsUsed(Number(data.manual_runs_used) || 0);
-      setManualRunsRemaining(typeof data.manual_runs_remaining === "number" ? data.manual_runs_remaining : null);
+      setFreeEpisodesUsed(Number(data.free_episodes_used) || 0);
+      setFreeEpisodesRemaining(typeof data.free_episodes_remaining === "number" ? data.free_episodes_remaining : null);
       setError("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load automation status.");
@@ -96,7 +96,7 @@ export default function ManualAutomationRun() {
   }
 
   const active = job?.status === "queued" || job?.status === "processing";
-  const freeRunsExhausted = !isPaid && manualRunsRemaining === 0;
+  const freeEpisodeExhausted = !isPaid && freeEpisodesRemaining === 0;
 
   return (
     <section className="panel manual-run-panel">
@@ -107,17 +107,17 @@ export default function ManualAutomationRun() {
       <p className="microcopy">
         {isPaid
           ? "Manual runs count towards the paid plan's daily and rolling 30-day episode allowances."
-          : `Free plan: ${manualRunsRemaining ?? 0} of 3 lifetime manual runs remaining. Each accepted manual run uses one of your three free runs.`}
+          : `Free plan: ${freeEpisodesRemaining ?? 0} of 1 lifetime episode remaining. This allowance does not reset.`}
       </p>
-      <p className="microcopy">{isPaid ? `${manualRunsUsed} manual runs submitted on this account.` : `${manualRunsUsed} of 3 free manual runs used.`}</p>
+      <p className="microcopy">{isPaid ? "Paid episodes are governed by your daily and rolling 30-day limits." : `${freeEpisodesUsed} of 1 free lifetime episode used.`}</p>
       {job && <p className="auth-notice" role="status">{statusText(job)}</p>}
       {notice && <p className="auth-notice" role="status">{notice}</p>}
       {error && <p className="auth-error" role="alert">{error}</p>}
-      {freeRunsExhausted ? (
-        <div><p className="auth-error">You have used all three free manual runs. Upgrade to continue generating episodes.</p><Link className="btn btn-primary" href="/dashboard/subscription">Upgrade your plan</Link></div>
+      {freeEpisodeExhausted ? (
+        <div><p className="auth-error">You have used your one free lifetime episode. Upgrade to continue generating episodes.</p><Link className="btn btn-primary" href="/dashboard/subscription">Upgrade your plan</Link></div>
       ) : (
         <button className="btn btn-primary" onClick={() => void runNow()} disabled={loading || submitting || active}>
-          {submitting ? "Starting…" : active ? "Run in progress…" : isPaid ? "Run automation now" : "Use one free manual run"}
+          {submitting ? "Starting…" : active ? "Run in progress…" : isPaid ? "Run automation now" : "Generate your free episode"}
         </button>
       )}
       {active && <button type="button" className="btn" onClick={() => void wakeWorkerNow()} disabled={loading || submitting || wakingWorker}>
