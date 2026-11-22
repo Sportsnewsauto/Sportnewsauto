@@ -254,7 +254,7 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
               onChange={e => update("minimum_narration_characters", Number(e.target.value))}
             />
           </label>
-          <p className="microcopy">{scriptLimit === 5000 ? "Free accounts and accounts without a paid plan are limited to 5,000 narration characters per episode." : "Your current plan allows up to 50,000 narration characters per episode."} Every account uses the same platform writing instructions and AI models. Connect your own Groq and/or Gemini API keys in API Connections.</p>
+          <p className="microcopy">{scriptLimit === 5000 ? "Free accounts are capped at 5,000 narration characters per episode." : "Paid plans allow up to 50,000 narration characters per episode."} Every account uses the same platform writing instructions and AI models. Connect your own Groq and/or Gemini API keys in API Connections.</p>
         </>}
         {section === "audio-settings" && <>
           <label>Text-to-speech provider<input value="Podcasti (provided by platform)" readOnly /></label>
