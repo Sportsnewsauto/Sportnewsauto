@@ -1,10 +1,9 @@
 name: Multi-tenant Podcast Worker
 
 on:
+  # The Cloudflare Worker Cron Trigger and the website's manual button both
+  # dispatch this workflow. GitHub's own schedule trigger is intentionally off.
   workflow_dispatch:
-  schedule:
-    # Every five minutes; the cadence is timezone-independent.
-    - cron: "*/5 * * * *"
 
 permissions:
   contents: read

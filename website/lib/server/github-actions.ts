@@ -4,6 +4,13 @@ type DispatchResult =
   | { dispatched: true }
   | { dispatched: false; reason: "not_configured" | "failed" };
 
+type DispatchConfig = {
+  appId?: string;
+  privateKey?: string;
+  repository?: string;
+  ref?: string;
+};
+
 function createAppJwt(appId: string, privateKey: string): string {
   const now = Math.floor(Date.now() / 1000);
   const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url");
@@ -21,13 +28,13 @@ function createAppJwt(appId: string, privateKey: string): string {
 
 /**
  * Starts the multi-tenant worker immediately through GitHub Actions.
- * The scheduled workflow remains the fallback if the GitHub App is not configured.
+ * Manual requests and the Cloudflare scheduled handler share this dispatcher.
  */
-export async function dispatchMultiTenantWorker(): Promise<DispatchResult> {
-  const appId = process.env.GITHUB_APP_ID?.trim();
-  const rawPrivateKey = process.env.GITHUB_APP_PRIVATE_KEY?.trim();
-  const repository = process.env.GITHUB_REPOSITORY?.trim() || "Sportsnewsauto/Sportnewsauto";
-  const ref = process.env.GITHUB_DEFAULT_BRANCH?.trim() || "main";
+export async function dispatchMultiTenantWorker(config: DispatchConfig = {}): Promise<DispatchResult> {
+  const appId = (config.appId ?? process.env.GITHUB_APP_ID)?.trim();
+  const rawPrivateKey = (config.privateKey ?? process.env.GITHUB_APP_PRIVATE_KEY)?.trim();
+  const repository = (config.repository ?? process.env.GITHUB_REPOSITORY)?.trim() || "Sportsnewsauto/Sportnewsauto";
+  const ref = (config.ref ?? process.env.GITHUB_DEFAULT_BRANCH)?.trim() || "main";
 
   if (!appId || !rawPrivateKey) {
     return { dispatched: false, reason: "not_configured" };
@@ -99,7 +106,7 @@ export async function dispatchMultiTenantWorker(): Promise<DispatchResult> {
     );
 
     if (!dispatchResponse.ok) {
-      console.error(`GitHub rejected the immediate worker dispatch (HTTP ${dispatchResponse.status}). Check that the GitHub App has Actions: write permission.`);
+      console.error(`GitHub rejected the immediate worker dispatch (HTTP ${dispatchResponse.status}). Check that the App has Actions: write permission.`);
       return { dispatched: false, reason: "failed" };
     }
 
