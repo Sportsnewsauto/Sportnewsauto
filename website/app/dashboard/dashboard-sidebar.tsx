@@ -7,7 +7,7 @@ import SignOutButton from "./sign-out-button";
 const workspaceLinks = [
   { icon: "▦", label: "Overview", href: "/dashboard" },
   { icon: "⚿", label: "API Connections", href: "/dashboard/api-connections" },
-  { icon: "▤", label: "Sports News Feeds", href: "/dashboard/sports-news-feeds" },
+  { icon: "▤", label: "RSS Feed", href: "/dashboard/rss-feed" },
   { icon: "✦", label: "AI Configuration", href: "/dashboard/ai-configuration" },
   { icon: "♫", label: "Audio Settings", href: "/dashboard/audio-settings" },
   { icon: "▱", label: "Advertising", href: "/dashboard/advertising" },
