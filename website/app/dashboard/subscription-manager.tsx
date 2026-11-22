@@ -138,10 +138,10 @@ export default function SubscriptionManager() {
             <p>Free access includes one episode for the lifetime of the account. Upgrade to generate more episodes and enable automatic schedules.</p>
           )}
           <div className="billing-usage-grid">
-            <div><span>Free lifetime episode</span><strong>{status.usage.free_episodes_limit === null ? "Paid access" : `${status.usage.free_episodes_used} / 1 used`}</strong></div>
+            <div><span>Free lifetime episode</span><strong>{status.plan === "admin" ? "Admin" : status.usage.free_episodes_limit === null ? "Paid access" : `${status.usage.free_episodes_used} / 1 used`}</strong></div>
             <div><span>RSS feeds</span><strong>{status.usage.feeds}{status.usage.feeds_limit === null ? " / Unlimited" : ` / ${status.usage.feeds_limit}`}</strong></div>
-            <div><span>Episodes today</span><strong>{status.usage.episodes_today}{status.usage.episodes_daily_limit === null ? " / Unlimited" : ` / ${status.usage.episodes_daily_limit}`}</strong></div>
-            <div><span>Episodes in 30 days</span><strong>{status.usage.episodes_last_30_days}{status.usage.episodes_30_day_limit === null ? " / Unlimited" : ` / ${status.usage.episodes_30_day_limit}`}</strong></div>
+            <div><span>Episodes today</span><strong>{status.usage.episodes_today}{status.plan === "admin" ? " / Unlimited" : status.is_paid ? ` / ${status.usage.episodes_daily_limit}` : ""}</strong></div>
+            <div><span>Episodes in 30 days</span><strong>{status.usage.episodes_last_30_days}{status.plan === "admin" ? " / Unlimited" : status.is_paid ? ` / ${status.usage.episodes_30_day_limit}` : ""}</strong></div>
           </div>
         </div>
 
