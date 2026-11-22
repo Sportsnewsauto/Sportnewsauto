@@ -39,12 +39,11 @@ const defaultSettings: WorkspaceSettings = {
   publishing_interval_hours: 8,
 };
 
-const ADMIN_ONLY_PODCASTI_VOICES = ["af_heart", "am_michael"];
 const PODCASTI_VOICES = [
   { id: "af_alloy", label: "Alloy — American English (female)" },
   { id: "af_aoede", label: "Aoede — American English (female)" },
   { id: "af_bella", label: "Bella — American English (female)" },
-  { id: "af_heart", label: "Heart — American English (female)", adminOnly: true },
+  { id: "af_heart", label: "Heart — American English (female)" },
   { id: "af_jessica", label: "Jessica — American English (female)" },
   { id: "af_kore", label: "Kore — American English (female)" },
   { id: "af_nicole", label: "Nicole — American English (female)" },
@@ -57,7 +56,7 @@ const PODCASTI_VOICES = [
   { id: "am_eric", label: "Eric — American English (male)" },
   { id: "am_fenrir", label: "Fenrir — American English (male)" },
   { id: "am_liam", label: "Liam — American English (male)" },
-  { id: "am_michael", label: "Michael — American English (male)", adminOnly: true },
+  { id: "am_michael", label: "Michael — American English (male)" },
   { id: "am_onyx", label: "Onyx — American English (male)" },
   { id: "am_puck", label: "Puck — American English (male)" },
   { id: "am_santa", label: "Santa — American English (male)" },
@@ -70,6 +69,7 @@ const PODCASTI_VOICES = [
   { id: "bm_george", label: "George — British English (male)" },
   { id: "bm_lewis", label: "Lewis — British English (male)" },
 ] as const;
+const ADMIN_ONLY_PODCASTI_VOICES = new Set(["af_heart", "am_michael"]);
 const PUBLISHING_INTERVALS = [2, 4, 6, 8] as const;
 
 const sectionInfo: Record<Section, { title: string; intro: string }> = {
@@ -129,13 +129,12 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
       } else if (data) {
         const savedVoice = typeof data.tts_voice === "string" ? data.tts_voice : defaultSettings.tts_voice;
         const voiceExists = PODCASTI_VOICES.some(voice => voice.id === savedVoice);
-        const voiceIsReserved = ADMIN_ONLY_PODCASTI_VOICES.includes(savedVoice);
         const savedInterval = Number(data.publishing_interval_hours);
         setForm({
           ...defaultSettings,
           ...data,
           minimum_narration_characters: Math.min(Number(data.minimum_narration_characters || defaultSettings.minimum_narration_characters), planLimit),
-          tts_voice: voiceExists && (adminWorkspace || !voiceIsReserved) ? savedVoice : defaultSettings.tts_voice,
+          tts_voice: voiceExists && (adminWorkspace || paidWorkspace || savedVoice === "af_bella") ? savedVoice : defaultSettings.tts_voice,
           publishing_interval_hours: PUBLISHING_INTERVALS.includes(savedInterval as (typeof PUBLISHING_INTERVALS)[number])
             ? savedInterval
             : defaultSettings.publishing_interval_hours,
@@ -177,7 +176,7 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
     if (
       section === "audio-settings" &&
       (!PODCASTI_VOICES.some(voice => voice.id === form.tts_voice) ||
-        (!isAdmin && ADMIN_ONLY_PODCASTI_VOICES.includes(form.tts_voice)))
+        (!isAdmin && !isPaid && form.tts_voice !== "af_bella"))
     ) {
       setError("Choose a Podcasti voice available to your workspace.");
       setSaving(false);
@@ -258,12 +257,12 @@ function ConfigurationForm({ section }: { section: "ai-configuration" | "audio-s
           <label>Text-to-speech provider<input value="Podcasti (provided by platform)" readOnly /></label>
           <label>Podcasti voice
             <select required disabled={!isAdmin && !isPaid} value={form.tts_voice} onChange={e => update("tts_voice", e.target.value)}>
-              {PODCASTI_VOICES.filter(voice => isAdmin || (isPaid ? !ADMIN_ONLY_PODCASTI_VOICES.includes(voice.id) : voice.id === "af_bella")).map(voice => (
-                <option key={voice.id} value={voice.id}>{voice.label}{("adminOnly" in voice && voice.adminOnly) ? " (Admin only)" : ""}</option>
+              {PODCASTI_VOICES.filter(voice => (isAdmin || !ADMIN_ONLY_PODCASTI_VOICES.has(voice.id)) && (isAdmin || isPaid || voice.id === "af_bella")).map(voice => (
+                <option key={voice.id} value={voice.id}>{voice.label}</option>
               ))}
             </select>
           </label>
-          <p className="microcopy">Free includes Bella only. Paid plans unlock all standard Podcasti voices. Heart and Michael are reserved for the Admin workspace.</p>
+          <p className="microcopy">Free includes Bella only. Paid plans unlock the customer voice library. Heart and Michael are reserved for Admin.</p>
         </>}
         {section === "publishing-schedule" && <>
           <label className="automation-toggle"><span><strong>Enable scheduled episode generation</strong><small>{isPaid || isAdmin ? "Leave this off until your Spreaker, AI and sports feed connections are ready." : "Automatic schedules are available on Monthly and Yearly paid plans."}</small></span><input type="checkbox" checked={isPaid || isAdmin ? form.automation_enabled : false} disabled={!isPaid && !isAdmin} onChange={e => update("automation_enabled", e.target.checked)} /></label>

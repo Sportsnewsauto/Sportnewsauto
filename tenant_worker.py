@@ -42,8 +42,8 @@ KOKORO_ENGLISH_VOICES = frozenset({
     "bf_alice", "bf_emma", "bf_isabella", "bf_lily",
     "bm_daniel", "bm_fable", "bm_george", "bm_lewis",
 })
-ADMIN_ONLY_KOKORO_VOICES = frozenset({"af_heart", "am_michael"})
 DEFAULT_CUSTOMER_KOKORO_VOICE = "af_bella"
+ADMIN_ONLY_KOKORO_VOICES = frozenset({"af_heart", "am_michael"})
 PUBLISHING_INTERVAL_OPTIONS = frozenset({2, 4, 6, 8})
 SCRIPT_FILES = [
     "fetch_news.py",
@@ -360,6 +360,15 @@ def rolling_episode_count(db: SupabaseRest, owner_id: str, current: datetime) ->
     return len(rows)
 
 
+def workspace_episode_limits(workspace: dict[str, Any], workspace_plan: str) -> tuple[int, int]:
+    """Return daily and rolling 30-day limits with plan-aware safe defaults."""
+    default_daily_limit = 6 if workspace_plan == "pro" else 3
+    default_monthly_limit = 180 if workspace_plan == "pro" else 3
+    daily_limit = max(1, int(workspace.get("daily_episode_limit") or default_daily_limit))
+    monthly_limit = max(1, int(workspace.get("monthly_episode_limit") or default_monthly_limit))
+    return daily_limit, monthly_limit
+
+
 def covered_history(db: SupabaseRest, owner_id: str) -> dict[str, list[str]]:
     rows = db.select(
         "episodes",
@@ -536,7 +545,7 @@ def workspace_kokoro_voice(settings: dict[str, Any], workspace_plan: str) -> str
         return DEFAULT_CUSTOMER_KOKORO_VOICE
     if voice not in KOKORO_ENGLISH_VOICES:
         return DEFAULT_CUSTOMER_KOKORO_VOICE
-    if voice in ADMIN_ONLY_KOKORO_VOICES and workspace_plan != "admin":
+    if workspace_plan != "admin" and voice in ADMIN_ONLY_KOKORO_VOICES:
         return DEFAULT_CUSTOMER_KOKORO_VOICE
     return voice
 
@@ -828,14 +837,13 @@ def process_queued_jobs(db: SupabaseRest):
                     continue
 
                 if plan != "admin":
-                    limit = max(1, int(workspace.get("daily_episode_limit") or 3))
+                    limit, monthly_limit = workspace_episode_limits(workspace, plan)
                     used_today = daily_episode_count(db, owner_id, settings, workspace, current)
                     if used_today >= limit:
                         mark_job(db, job_id, "cancelled", f"Daily episode allowance reached ({used_today}/{limit}).")
                         print(f"[{owner_id}] Cancelled queued job {job_id}: daily episode allowance reached ({used_today}/{limit}).", flush=True)
                         continue
 
-                    monthly_limit = max(1, int(workspace.get("monthly_episode_limit") or (3 if plan == "free" else 90)))
                     used_30_days = rolling_episode_count(db, owner_id, current)
                     if used_30_days >= monthly_limit:
                         mark_job(db, job_id, "cancelled", f"Rolling 30-day episode allowance reached ({used_30_days}/{monthly_limit}).")

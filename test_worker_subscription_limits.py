@@ -79,15 +79,27 @@ class SubscriptionEntitlementTests(unittest.TestCase):
             "af_bella",
         )
 
-    def test_paid_workspace_can_use_standard_voice_but_not_admin_reserved_voice(self):
-        self.assertEqual(
-            tenant_worker.workspace_kokoro_voice({"tts_voice": "bf_emma"}, "pro"),
-            "bf_emma",
-        )
-        self.assertEqual(
-            tenant_worker.workspace_kokoro_voice({"tts_voice": "af_heart"}, "pro"),
-            "af_bella",
-        )
+    def test_paid_workspace_cannot_use_admin_only_voices(self):
+        for voice in ("af_heart", "am_michael"):
+            with self.subTest(voice=voice):
+                self.assertEqual(
+                    tenant_worker.workspace_kokoro_voice({"tts_voice": voice}, "pro"),
+                    "af_bella",
+                )
+
+    def test_paid_workspace_can_use_the_other_customer_voices(self):
+        for voice in ("bf_emma", "bm_george"):
+            with self.subTest(voice=voice):
+                self.assertEqual(
+                    tenant_worker.workspace_kokoro_voice({"tts_voice": voice}, "pro"),
+                    voice,
+                )
+
+    def test_paid_usage_allowance_defaults_to_six_daily_and_180_in_30_days(self):
+        self.assertEqual(tenant_worker.workspace_episode_limits({}, "pro"), (6, 180))
+
+    def test_free_usage_allowance_fallback_remains_three(self):
+        self.assertEqual(tenant_worker.workspace_episode_limits({}, "free"), (3, 3))
 
     def test_admin_workspace_can_keep_reserved_voice(self):
         self.assertEqual(

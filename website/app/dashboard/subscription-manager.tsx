@@ -155,7 +155,7 @@ export default function SubscriptionManager() {
                 <p>Flexible monthly access. Renew each month when you need it.</p>
                 <div className="price">KSh 3,000 <small>/ month</small></div>
                 <p><del>KSh 6,000</del> · 50% off</p>
-                <ul><li>Up to 3 episodes per day</li><li>90 episodes per rolling 30 days</li><li>20 RSS feeds</li><li>Up to 50,000 script characters</li><li>All standard Podcasti voices</li><li>Automatic scheduling and manual runs</li></ul>
+                <ul><li>Up to 6 episodes per day</li><li>180 episodes per rolling 30 days</li><li>20 RSS feeds</li><li>Up to 50,000 script characters</li><li>All customer voices (Heart and Michael are Admin-only)</li><li>Automatic scheduling and manual runs</li></ul>
                 <div className="integration-actions">
                   {status.flutterwave_ready && <button className="btn btn-primary" disabled={busy} onClick={() => void startFlutterwave("monthly")}>Pay by Card or M-Pesa</button>}
                   {status.mpesa_ready && <button className="btn btn-outline" disabled={busy || !phone.trim()} onClick={() => void startPayment("monthly")}>Pay directly with M-Pesa</button>}
