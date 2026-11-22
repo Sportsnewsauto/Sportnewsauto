@@ -7,9 +7,9 @@ export const dynamic = "force-dynamic";
 
 function normalizeKenyanPhone(value: unknown): string | null {
   if (typeof value !== "string") return null;
-  const digits = value.replace(/[\\s()+-]/g, "");
-  if (/^0[17]\\d{8}$/.test(digits)) return `254${digits.slice(1)}`;
-  if (/^254[17]\\d{8}$/.test(digits)) return digits;
+  const digits = value.replace(/[\s()+-]/g, "");
+  if (/^0[17]\d{8}$/.test(digits)) return `254${digits.slice(1)}`;
+  if (/^254[17]\d{8}$/.test(digits)) return digits;
   return null;
 }
 
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
   const passkey = process.env.MPESA_PASSKEY!;
   const password = Buffer.from(`${shortcode}${passkey}${timestamp}`).toString("base64");
   const callbackToken = process.env.MPESA_CALLBACK_TOKEN!;
-  const appUrl = (process.env.APP_BASE_URL || new URL(request.url).origin).replace(/\\/$/, "");
+  const appUrl = (process.env.APP_BASE_URL || new URL(request.url).origin).replace(/\/$/, "");
   if (!appUrl.startsWith("https://")) {
     await markPaymentFailed(admin, payment.id, "The configured callback base URL must use HTTPS.");
     return NextResponse.json({ error: "The M-Pesa callback URL must be a public HTTPS address. Set APP_BASE_URL to the live Podcasti website URL." }, { status: 503 });
