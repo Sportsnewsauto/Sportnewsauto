@@ -3,8 +3,8 @@ name: Multi-tenant Podcast Worker
 on:
   workflow_dispatch:
   schedule:
+    # Every five minutes; the cadence is timezone-independent.
     - cron: "*/5 * * * *"
-      timezone: "Africa/Nairobi"
 
 permissions:
   contents: read
@@ -22,6 +22,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+
+      - name: Log worker trigger source
+        run: |
+          echo "Worker trigger source: $GITHUB_EVENT_NAME"
+          echo "Worker started at (UTC): $(date -u --iso-8601=seconds)"
 
       - name: Validate worker syntax
         run: python -m py_compile tenant_worker.py upload_spreaker.py
