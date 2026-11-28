@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getLocalDayBounds } from "@/lib/timezone";
 import LegacyAutomationImport from "./legacy-automation-import";
 import ManualAutomationRun from "./manual-automation-run";
+import DashboardUsageCounter from "./dashboard-usage-counter";
+
+export const dynamic = "force-dynamic";
 
 function nextEstimatedRun(timezone: string, intervalHours: number): Date {
   const safeZone = (() => {
@@ -52,6 +56,19 @@ export default async function Dashboard() {
     try { new Intl.DateTimeFormat("en", { timeZone: requestedTimezone }); return requestedTimezone; }
     catch { return "Africa/Nairobi"; }
   })();
+
+  // Count actual successful publications in the workspace's current calendar day.
+  const usageDay = getLocalDayBounds(scheduleTimezone);
+  const { count: publishedTodayCount, error: publishedTodayError } = await supabase
+    .from("episodes")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", user.id)
+    .eq("status", "published")
+    .not("published_at", "is", null)
+    .gte("published_at", usageDay.start.toISOString())
+    .lt("published_at", usageDay.end.toISOString());
+  const usageCheckedAt = new Date().toISOString();
+
   const scheduleInterval = Number(settings?.publishing_interval_hours) || 8;
   const estimatedRun = settings?.automation_enabled
     ? new Intl.DateTimeFormat("en-KE", { dateStyle: "medium", timeStyle: "short", timeZone: scheduleTimezone }).format(nextEstimatedRun(scheduleTimezone, scheduleInterval))
@@ -62,7 +79,8 @@ export default async function Dashboard() {
   const activePaid = workspace?.plan === "admin" || (["pro", "business"].includes(workspace?.plan ?? "") && workspace?.subscription_status === "active" && paidExpiresAt > Date.now());
   const planDisplay = workspace?.plan === "admin" ? "Admin" : activePaid ? (workspace?.subscription_interval === "yearly" ? "Yearly" : "Monthly") : "Free";
   const automationLabel = settings?.automation_enabled && activePaid ? "Enabled" : "Paused";
-  // The Admin plan is protected by the database trigger; use it as the source of truth.
+  // Admin is exempt from daily generation limits; never display its stored fallback
+  // daily_episode_limit as a real cap.
   const isPlatformAdmin = workspace?.plan === "admin";
 
   return (
@@ -70,7 +88,16 @@ export default async function Dashboard() {
       <div className="dash-top"><div><h1>Dashboard overview</h1><p>Welcome, {user.email}. Your private workspace is ready.</p></div><span className="status">● Signed in</span></div>
       <ManualAutomationRun />
       <div className="dash-cards">
-        <div className="dash-card"><span>Episodes published today</span><strong>0 / {workspace?.daily_episode_limit ?? 1}</strong><small>{workspace?.plan === "admin" ? "Admin daily allowance" : "Free plan daily allowance"}</small></div>
+        <div className="dash-card">
+          <span>Episodes published today</span>
+          <DashboardUsageCounter
+            initialCount={publishedTodayError ? null : publishedTodayCount ?? 0}
+            initialCheckedAt={usageCheckedAt}
+            initialError={Boolean(publishedTodayError)}
+            timezone={scheduleTimezone}
+            isAdmin={isPlatformAdmin}
+          />
+        </div>
         <div className="dash-card"><span>Account plan</span><strong>{planDisplay}</strong><small>{workspace?.plan === "admin" ? "Platform Admin workspace" : activePaid ? "Paid subscription active" : "3 lifetime manual runs · 5,000 script characters · 2 RSS feeds"}</small></div>
         <div className="dash-card"><span>Automation</span><strong>{automationLabel}</strong><small>{automationLabel === "Enabled" ? "Scheduled worker enabled" : activePaid ? "Enable after connecting services" : "Upgrade to enable scheduled runs"}</small></div>
         <div className="dash-card"><span>Next estimated run</span><strong>{settings?.automation_enabled ? estimatedRun : "Paused"}</strong><small>{settings?.automation_enabled ? `Every ${scheduleInterval} hours · ${scheduleTimezone}` : estimatedRun}</small></div>
