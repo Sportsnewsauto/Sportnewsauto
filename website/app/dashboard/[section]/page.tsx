@@ -7,13 +7,14 @@ import AdvertisingManager from "../advertising-manager";
 
 const supportedSections = new Set([
   "api-connections", "rss-feed",
-  "ai-configuration", "audio-settings", "advertising",
-  "publishing-schedule", "episodes", "subscription", "settings",
+  "ai-configuration", "audio-settings", "ad-slots",
+  "advertising", "publishing-schedule", "episodes", "subscription", "settings",
 ]);
 
 export default async function DashboardSectionPage({ params }: { params: Promise<{ section: string }> }) {
   const { section } = await params;
   if (section === "sports-news-feeds") redirect("/dashboard/rss-feed");
+  if (section === "advertising") redirect("/dashboard/ad-slots");
   if (!supportedSections.has(section)) notFound();
 
   const supabase = await createClient();
@@ -27,7 +28,7 @@ export default async function DashboardSectionPage({ params }: { params: Promise
     </section>;
   }
   if (section === "rss-feed") return <FeedsManager />;
-  if (section === "advertising") return <AdvertisingManager />;
+  if (section === "ad-slots") return <AdvertisingManager />;
 
   return <SectionWorkspace section={section as "ai-configuration" | "audio-settings" | "publishing-schedule" | "episodes" | "subscription" | "settings"} />;
 }

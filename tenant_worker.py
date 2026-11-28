@@ -426,14 +426,26 @@ def workspace_feeds(db: SupabaseRest, owner_id: str) -> list[dict[str, str]]:
 
 
 def workspace_ad_slots(db: SupabaseRest, owner_id: str) -> list[dict[str, int]]:
-    rows = db.select(
-        "ad_slots",
-        select="position_seconds,ads_max_count",
-        owner_id=f"eq.{owner_id}",
-        enabled="eq.true",
-        order="position_seconds.asc",
-        limit="100",
-    )
+    """Load all enabled cuepoints for a workspace, paging past the REST row limit."""
+    rows: list[dict[str, Any]] = []
+    page_size = 100
+    offset = 0
+
+    while True:
+        page = db.select(
+            "ad_slots",
+            select="position_seconds,ads_max_count",
+            owner_id=f"eq.{owner_id}",
+            enabled="eq.true",
+            order="position_seconds.asc",
+            limit=str(page_size),
+            offset=str(offset),
+        )
+        rows.extend(page)
+        if len(page) < page_size:
+            break
+        offset += len(page)
+
     return [
         {
             "timecode": int(row["position_seconds"]) * 1000,

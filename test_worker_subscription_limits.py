@@ -140,6 +140,35 @@ class SubscriptionEntitlementTests(unittest.TestCase):
             "af_heart",
         )
 
+    def test_worker_loads_more_than_one_hundred_ad_slots(self):
+        class PagedAdSlotDatabase:
+            def __init__(self, rows):
+                self.rows = rows
+                self.calls = []
+
+            def select(self, table, **params):
+                self.calls.append((table, params))
+                start = int(params["offset"])
+                limit = int(params["limit"])
+                return self.rows[start:start + limit]
+
+        rows = [
+            {
+                "position_seconds": 9000 + index,
+                "ads_max_count": 4,
+            }
+            for index in range(125)
+        ]
+        db = PagedAdSlotDatabase(rows)
+
+        slots = tenant_worker.workspace_ad_slots(db, "owner-1")
+
+        self.assertEqual(len(slots), 125)
+        self.assertEqual(slots[0]["timecode"], 9_000_000)
+        self.assertEqual(slots[-1]["timecode"], 9_124_000)
+        self.assertEqual([call[1]["offset"] for call in db.calls], ["0", "100"])
+
+
     def test_rolling_episode_count_uses_last_30_days(self):
         db = RecordingDatabase(rows=[{"id": "episode-1"}, {"id": "episode-2"}])
         self.assertEqual(
