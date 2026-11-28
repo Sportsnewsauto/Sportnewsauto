@@ -10,7 +10,7 @@ const workspaceLinks = [
   { icon: "▤", label: "RSS Feed", href: "/dashboard/rss-feed" },
   { icon: "✦", label: "AI Configuration", href: "/dashboard/ai-configuration" },
   { icon: "♫", label: "Audio Settings", href: "/dashboard/audio-settings" },
-  { icon: "▱", label: "Advertising", href: "/dashboard/advertising" },
+  { icon: "▱", label: "Ad Slots", href: "/dashboard/ad-slots" },
   { icon: "◷", label: "Publishing Schedule", href: "/dashboard/publishing-schedule" },
   { icon: "☷", label: "Episodes", href: "/dashboard/episodes" },
   { icon: "▣", label: "Subscription", href: "/dashboard/subscription" },
